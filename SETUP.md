@@ -2,8 +2,9 @@
 
 About 15 minutes. You need a Windows PC with AutoCAD Plant 3D (or AutoCAD) **2020 or newer**.
 
-> **AutoCAD / Plant 3D 2025 or newer** runs on .NET 8, so that computer also needs the free **.NET 8 SDK**
-> (step 1) to build the plugin. 2020-2024 need nothing extra.
+> **AutoCAD / Plant 3D 2025 or newer** runs on modern .NET, so that computer also needs the free **.NET SDK**
+> of the same version (step 1): **.NET 10** for an updated AutoCAD 2025, **.NET 8** for 2025 as first released.
+> Not sure? Run `setup.bat`; if the SDK is missing it says exactly which one to install. 2020-2024 need nothing extra.
 
 ## 1. Install the Prerequisites (once)
 
@@ -12,11 +13,11 @@ About 15 minutes. You need a Windows PC with AutoCAD Plant 3D (or AutoCAD) **202
 | **Python 3.10 or newer** | https://www.python.org/downloads/ | On the first installer screen tick **Add python.exe to PATH**. |
 | **Git for Windows** | https://git-scm.com/download/win | Defaults are fine. |
 | **AutoCAD Plant 3D 2020 or newer** | Autodesk | Already installed on CAD machines. |
-| **.NET 8 SDK** (2025+ only) | `winget install Microsoft.DotNet.SDK.8` or https://dotnet.microsoft.com/download/dotnet/8.0 (SDK, x64) | Only for AutoCAD 2025 and newer. |
+| **.NET SDK** (2025+ only) | `winget install Microsoft.DotNet.SDK.10` (or `.8`), or https://dotnet.microsoft.com/download (SDK, Windows x64) | Only for AutoCAD 2025 and newer; the version setup.bat asks for. |
 | **GitHub access** | Ask for an invite to the repo | Accept the email invite before cloning. |
 
 Nothing else is needed: the AutoCAD plugin is compiled on each computer against that computer's AutoCAD
-(2020-2024 with the C# compiler that comes with Windows; 2025+ with the .NET 8 SDK). No Visual Studio.
+(2020-2024 with the C# compiler that comes with Windows; 2025+ with the .NET SDK). No Visual Studio.
 
 ## 2. Get the Code
 
@@ -84,7 +85,7 @@ After changing `acad_exe`, run `setup.bat` again so the plugin is rebuilt agains
 | Problem | Fix |
 |---|---|
 | `'python' is not recognized` | Reinstall Python with **Add python.exe to PATH** ticked, then open a new Command Prompt. |
-| `THE AUTOCAD PLUGIN DID NOT BUILD` | Read `plugin\build.log`. Usually AutoCAD wasn't found (set `acad_exe`), or it is 2025+ and the .NET 8 SDK isn't installed. |
+| `THE AUTOCAD PLUGIN DID NOT BUILD` | Read `plugin\build.log`. Usually AutoCAD wasn't found (set `acad_exe`), or it is 2025+ and the .NET SDK it names isn't installed (install it, open a new Command Prompt, run setup.bat again). |
 | `settings.json can't be read (Invalid \escape)` | Backslashes in JSON must be doubled: `"C:\\Program Files\\..."`. Or leave `acad_exe` empty. |
 | Page says AutoCAD isn't running | Start Plant 3D first. If Plant 3D runs **as administrator**, run `run.bat` as administrator too (they must match). |
 | `Port 5014 is in use` | DWG Tools is already open in another window, or set another `port`. |

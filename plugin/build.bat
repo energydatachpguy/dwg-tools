@@ -79,32 +79,56 @@ endlocal
 exit /b 0
 
 :net8
-rem AutoCAD 2025 and newer: .NET 8, built with the .NET SDK (dotnet build)
-echo Building against AutoCAD %ACADYEAR% in "%ACAD%" (.NET 8) >> build.log
+rem AutoCAD 2025 and newer: modern .NET, built with the .NET SDK (dotnet build).
+rem Which .NET: the one AutoCAD's own acdbmgd.dll was built for (8 at release; 10 after
+rem Autodesk's later updates). Read from the DLL; if that guess is wrong the compiler
+rem says which version it needs and the build is retried once with that one.
+set NETV=8
+set RETRIED=
+for /f %%v in ('powershell -NoProfile -Command "$t=[Text.Encoding]::GetEncoding(28591).GetString([IO.File]::ReadAllBytes('%ACAD%\acdbmgd.dll')); $m=[regex]::Match($t,'\.NETCoreApp,Version=v(\d+)'); if($m.Success){$m.Groups[1].Value}"') do set NETV=%%v
 set "DOTNET="
 for %%p in ("%ProgramFiles%\dotnet\dotnet.exe" "%LOCALAPPDATA%\Microsoft\dotnet\dotnet.exe") do if not defined DOTNET if exist "%%~p" set "DOTNET=%%~p"
 if not defined DOTNET for /f "delims=" %%p in ('where dotnet 2^>nul') do if not defined DOTNET set "DOTNET=%%p"
-set "HAVESDK="
-if not exist obj mkdir obj
-if defined DOTNET "%DOTNET%" --list-sdks > obj\sdks.txt 2>nul
-if defined DOTNET for /f "usebackq tokens=1 delims=." %%v in ("obj\sdks.txt") do if %%v GEQ 8 set "HAVESDK=1"
-if not defined HAVESDK (
-  echo AutoCAD %ACADYEAR% runs on .NET 8, so this computer needs the free .NET 8 SDK to build the plugin. >> build.log
-  echo Install it with:  winget install Microsoft.DotNet.SDK.8 >> build.log
-  echo or download ".NET 8 SDK x64" from https://dotnet.microsoft.com/download/dotnet/8.0 >> build.log
-  echo then run setup.bat again. >> build.log
-  echo BUILD FAILED >> build.log
-  type build.log
-  if "%1"=="" pause
-  exit /b 1
-)
 if not exist bin mkdir bin
 if not exist obj mkdir obj
 > obj\BuildInfo.cs (
   echo namespace DwgFlat { public static class BuildInfo { public const string Stamp = "%STAMP%"; public const string Command = "DWGT%STAMP%"; } }
 )
-"%DOTNET%" build "%~dp0DwgTools.net8.csproj" -c Release -nologo -v:minimal -p:Stamp=%STAMP% -p:AcadDir="%ACAD%" >> build.log 2>&1
-if errorlevel 1 (
+set DOTNET_CLI_TELEMETRY_OPTOUT=1
+set DOTNET_NOLOGO=1
+
+:netbuild
+echo Building against AutoCAD %ACADYEAR% in "%ACAD%" (AutoCAD uses .NET %NETV%) >> build.log
+set "HAVESDK="
+type nul > obj\sdks.txt
+if defined DOTNET "%DOTNET%" --list-sdks > obj\sdks.txt 2>nul
+for /f "usebackq tokens=1 delims=." %%v in ("obj\sdks.txt") do if %%v GEQ %NETV% set "HAVESDK=1"
+if not defined HAVESDK (
+  echo AutoCAD %ACADYEAR% on this computer runs on .NET %NETV%, so building the plugin needs the free .NET %NETV% SDK. >> build.log
+  if exist obj\sdks.txt type obj\sdks.txt >> build.log
+  echo Install it with:  winget install Microsoft.DotNet.SDK.%NETV% >> build.log
+  echo or download ".NET %NETV%.0 SDK, Windows x64" from https://dotnet.microsoft.com/download/dotnet/%NETV%.0 >> build.log
+  echo then close this window, open a new Command Prompt, and run setup.bat again. >> build.log
+  echo BUILD FAILED >> build.log
+  type build.log
+  if "%1"=="" pause
+  exit /b 1
+)
+"%DOTNET%" build "%~dp0DwgTools.netcore.csproj" -c Release -nologo -v:minimal -clp:ErrorsOnly -p:NetMajor=%NETV% -p:Stamp=%STAMP% -p:AcadDir="%ACAD%" > obj\dotnet.log 2>&1
+set BUILDERR=%ERRORLEVEL%
+type obj\dotnet.log >> build.log
+if not "%BUILDERR%"=="0" (
+  if not defined RETRIED for /f %%v in ('powershell -NoProfile -Command "$m=[regex]::Match((Get-Content -Raw 'obj\dotnet.log'),'uses .System\.Runtime, Version=(\d+)'); if($m.Success){$m.Groups[1].Value}"') do if not "%%v"=="%NETV%" (
+    set NETV=%%v
+    set RETRIED=1
+  )
+)
+if not "%BUILDERR%"=="0" if "%RETRIED%"=="1" (
+  set RETRIED=2
+  echo AutoCAD's files need .NET %NETV%; building again for that. >> build.log
+  goto netbuild
+)
+if not "%BUILDERR%"=="0" (
   echo BUILD FAILED >> build.log
   type build.log
   if "%1"=="" pause
@@ -118,9 +142,9 @@ if not exist "bin\DwgTools_%STAMP%.dll" (
   exit /b 1
 )
 > bin\current.json (
-  echo {"dll": "DwgTools_%STAMP%.dll", "command": "DWGT%STAMP%", "stamp": "%STAMP%", "net": "8"}
+  echo {"dll": "DwgTools_%STAMP%.dll", "command": "DWGT%STAMP%", "stamp": "%STAMP%", "net": "%NETV%"}
 )
-echo Built %~dp0bin\DwgTools_%STAMP%.dll  (command DWGT%STAMP%, .NET 8) >> build.log
+echo Built %~dp0bin\DwgTools_%STAMP%.dll  (command DWGT%STAMP%, .NET %NETV%) >> build.log
 type build.log
 if "%1"=="" pause
 endlocal

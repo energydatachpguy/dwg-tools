@@ -26,8 +26,25 @@ def item(status, what, fix=""):
         print("        -> " + fix)
 
 
-def dotnet_sdk():
-    """Newest installed .NET SDK version 8 or later, else ''."""
+def acad_net(acad_dir):
+    """Major .NET version AutoCAD's acdbmgd.dll was built for (8 at 2025's release, 10 after updates)."""
+    try:
+        with open(os.path.join(acad_dir, "acdbmgd.dll"), "rb") as fh:
+            data = fh.read()
+        import re
+        m = re.search(rb"\.NETCoreApp,Version=v(\d+)", data)
+        if m:
+            return int(m.group(1))
+        m = re.search(rb"System\.Runtime.{0,40}?Version=(\d+)", data)
+        if m:
+            return int(m.group(1))
+    except Exception:
+        pass
+    return 8
+
+
+def dotnet_sdk(need=8):
+    """Newest installed .NET SDK at least version `need`, else ''."""
     import subprocess
     cands = [os.path.join(os.environ.get("ProgramFiles", r"C:\Program Files"), "dotnet", "dotnet.exe"),
              os.path.join(os.environ.get("LOCALAPPDATA", ""), "Microsoft", "dotnet", "dotnet.exe"), "dotnet"]
@@ -37,7 +54,7 @@ def dotnet_sdk():
         except Exception:
             continue
         vers = [ln.split()[0] for ln in out.splitlines() if ln.strip()]
-        good = [v for v in vers if v.split(".")[0].isdigit() and int(v.split(".")[0]) >= 8]
+        good = [v for v in vers if v.split(".")[0].isdigit() and int(v.split(".")[0]) >= need]
         if good:
             return good[-1]
     return ""
@@ -101,14 +118,16 @@ def main():
         year = cad._acad_year(exe)
         name = "AutoCAD %s" % (year or "(unknown version)")
         if year >= 2025:
-            item("OK", "%s at %s (.NET 8)" % (name, exe))
-            sdk = dotnet_sdk()
+            need = acad_net(os.path.dirname(exe))
+            item("OK", "%s at %s (runs on .NET %d)" % (name, exe, need))
+            sdk = dotnet_sdk(need)
             if sdk:
-                item("OK", ".NET SDK %s (builds the plugin for AutoCAD 2025+)" % sdk)
+                item("OK", ".NET SDK %s (builds the plugin for AutoCAD %s)" % (sdk, year))
             else:
-                item("FAIL", "AutoCAD 2025+ needs the free .NET 8 SDK to build the plugin",
-                     "Run  winget install Microsoft.DotNet.SDK.8  (or download '.NET 8 SDK x64' from "
-                     "https://dotnet.microsoft.com/download/dotnet/8.0), then run setup.bat again")
+                item("FAIL", "AutoCAD %s here runs on .NET %d; building the plugin needs the free .NET %d SDK" % (year, need, need),
+                     "Run  winget install Microsoft.DotNet.SDK.%d  (or download '.NET %d.0 SDK, Windows x64' from "
+                     "https://dotnet.microsoft.com/download/dotnet/%d.0), open a new Command Prompt, run setup.bat again"
+                     % (need, need, need))
         else:
             item("OK", "%s at %s" % (name, exe))
         plant = os.path.isdir(os.path.join(os.path.dirname(exe), "PLNT3D"))

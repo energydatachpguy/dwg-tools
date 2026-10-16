@@ -153,7 +153,7 @@ def _acad_year(exe: str) -> int:
 
 def acad_exe() -> str:
     """settings.json "acad_exe", else the newest AutoCAD / Plant 3D 2020-2024,
-    else the newest 2025+ (.NET 8; plugin built with dotnet, see build.bat)."""
+    else the newest 2025+ (modern .NET; plugin built with dotnet, see build.bat)."""
     c = str(settings().get("acad_exe") or "").strip()
     if c and os.path.isfile(c):
         return c
