@@ -1,0 +1,7 @@
+{
+  "port": 5014,
+  "share": false,
+  "acad_exe": "",
+  "acad_args": ["/product", "PLNT3D", "/language", "en-US"],
+  "plugin_dll": ""
+}

@@ -1,0 +1,2370 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>DWG Tools</title>
+<style>
+  /* ── tokens (ChatGPT-like: white canvas, soft grey sidebar, black primary) ── */
+  :root {
+    --bg: #ffffff; --side: #f9f9f9; --surface: #ffffff; --raised: #f4f4f4; --hover: #ececec;
+    --ink: #0d0d0d; --ink-2: #5d5d5d; --mute: #8f8f8f; --line: rgba(0,0,0,.1); --line-2: rgba(0,0,0,.06);
+    --btn: #0d0d0d; --btn-ink: #ffffff;
+    --green: #10a37f; --green-soft: #e7f6f1; --blue: #2b6cb0; --blue-soft: rgba(43,108,176,.14);
+    --amber: #c58a12; --amber-soft: #fdf5e6; --red: #d1364c; --red-soft: #fdecee;
+    --mono: ui-monospace, "Cascadia Mono", "SF Mono", Consolas, monospace;
+    --shadow: 0 1px 2px rgba(0,0,0,.04), 0 4px 16px rgba(0,0,0,.06);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #212121; --side: #171717; --surface: #2a2a2a; --raised: #303030; --hover: #3a3a3a;
+      --ink: #ececec; --ink-2: #b4b4b4; --mute: #8a8a8a; --line: rgba(255,255,255,.12); --line-2: rgba(255,255,255,.07);
+      --btn: #ececec; --btn-ink: #0d0d0d; --green-soft: rgba(16,163,127,.16); --blue-soft: rgba(90,150,220,.2);
+      --amber-soft: rgba(197,138,18,.16); --red-soft: rgba(209,54,76,.16); --shadow: 0 1px 2px rgba(0,0,0,.3), 0 4px 16px rgba(0,0,0,.3);
+    }
+  }
+  * { box-sizing: border-box; }
+  html, body { height: 100%; }
+  body { margin: 0; background: var(--bg); color: var(--ink); font: 14px/1.5 ui-sans-serif, -apple-system, "Segoe UI", system-ui, Roboto, "Helvetica Neue", Arial, sans-serif; display: flex; }
+  button { font: inherit; color: inherit; cursor: pointer; }
+  /* anything you can click shows the hand */
+  a[href], button:not(:disabled), [onclick], summary, select, label, input[type=checkbox], input[type=radio], .node, .tn, .tl.vert .tn,
+  tr.click, [data-sort], .plc, .card-s, .results div, .ctx div[data-a], .tabs button, .qx, .side-grip { cursor: pointer; }
+  .side-grip { cursor: col-resize !important; }
+  button:disabled { cursor: not-allowed; }
+  input[type=text], input[type=number] { cursor: text; }
+  a { color: var(--blue); text-decoration: none; }
+  *, *::before, *::after { text-decoration: none !important; }
+  .nav a, a .btn, a.btn { color: inherit; }
+  input, select { font: inherit; color: inherit; }
+  .muted { color: var(--ink-2); } .mute { color: var(--mute); }
+  .path, code { font-family: var(--mono); font-size: 12.5px; }
+  code { background: var(--raised); padding: 1px 5px; border-radius: 5px; }
+
+  /* ── sidebar ── */
+  aside { width: 260px; flex: none; background: var(--side); height: 100vh; position: sticky; top: 0; display: flex; flex-direction: column; border-right: 1px solid var(--line-2); }
+  .brand { display: flex; align-items: center; gap: 10px; padding: 14px 14px 6px; font-weight: 600; font-size: 15px; }
+  .brand .logo { width: 28px; height: 28px; border-radius: 8px; background: var(--btn); color: var(--btn-ink); display: flex; align-items: center; justify-content: center; font-size: 13px; font-weight: 700; }
+  .newbtn { margin: 8px 10px 6px; display: flex; align-items: center; gap: 10px; padding: 9px 12px; border-radius: 10px; border: 0; background: transparent; text-align: left; font-weight: 500; }
+  .newbtn:hover, .sitem:hover { background: var(--hover); }
+  .sscroll { overflow: auto; flex: 1; padding: 4px 10px 12px; }
+  .shd { font-size: 12px; color: var(--mute); font-weight: 600; padding: 14px 8px 4px; }
+  .sitem { display: block; width: 100%; border: 0; background: transparent; text-align: left; padding: 7px 10px; border-radius: 8px; font-size: 13.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .sitem.on { background: var(--hover); font-weight: 500; }
+  .sitem small { display: block; color: var(--mute); font-size: 11.5px; overflow: hidden; text-overflow: ellipsis; }
+  .sfoot { padding: 10px 14px 14px; font-size: 12px; color: var(--mute); border-top: 1px solid var(--line-2); }
+  .sfoot b { color: var(--ink-2); font-weight: 600; }
+  @media (max-width: 900px) { aside { display: none; } }
+
+  /* ── top nav ── */
+  .nav { display: flex; align-items: center; gap: 4px; padding: 8px 20px; border-bottom: 1px solid var(--line-2); font-size: 13.5px; }
+  .nav .brand { display: flex; align-items: center; gap: 9px; font-weight: 600; font-size: 15px; margin-right: 14px; }
+  .nav .logo { width: 26px; height: 26px; border-radius: 7px; background: var(--btn); color: var(--btn-ink); display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 700; }
+  .nav .nl { padding: 6px 12px; border-radius: 999px; border: 0; background: transparent; font-weight: 500; }
+  .nav .nl:hover { background: var(--hover); } .nav .nl.on { background: var(--raised); }
+  .nav .nr { margin-left: auto; display: flex; align-items: center; gap: 8px; color: var(--mute); font-size: 12.5px; }
+  .nav .nr b { color: var(--ink-2); font-weight: 600; }
+  /* ── main ── */
+  main { flex: 1; min-width: 0; height: 100vh; overflow: auto; }
+  .topbar { position: sticky; top: 0; z-index: 5; background: color-mix(in srgb, var(--bg) 92%, transparent); backdrop-filter: blur(8px); border-bottom: 1px solid var(--line-2); }
+  .tb-row { display: flex; align-items: center; gap: 12px; padding: 10px 24px 0; }
+  .tb-title { font-weight: 600; font-size: 15px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .tb-sub { font-size: 12.5px; color: var(--mute); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .tb-right { margin-left: auto; display: flex; gap: 6px; align-items: center; }
+  .wrap { max-width: 1320px; margin: 0 auto; padding: 18px 24px 60px; }
+
+  /* buttons */
+  .btn { display: inline-flex; align-items: center; gap: 6px; border: 1px solid var(--line); background: var(--surface); padding: 7px 14px; border-radius: 999px; font-size: 13.5px; font-weight: 500; white-space: nowrap; }
+  .btn:hover { background: var(--hover); }
+  .btn.primary { background: var(--btn); color: var(--btn-ink); border-color: var(--btn); }
+  .btn.primary:hover { opacity: .88; }
+  .btn.primary:disabled { opacity: .3; cursor: not-allowed; }
+  .btn.sm { padding: 4px 11px; font-size: 12.5px; }
+  .btn.ghost { border-color: transparent; background: transparent; }
+  .btn.ghost:hover { background: var(--hover); }
+  .chip { display: inline-flex; align-items: center; gap: 6px; border: 1px solid var(--line); border-radius: 999px; padding: 5px 12px; font-size: 12.5px; background: transparent; color: var(--ink-2); }
+  .chip.on { background: var(--raised); color: var(--ink); border-color: transparent; font-weight: 500; }
+  input[type=text] { width: 100%; border: 1px solid var(--line); background: var(--surface); border-radius: 12px; padding: 9px 12px; outline: none; }
+  input[type=text]:focus { border-color: color-mix(in srgb, var(--ink) 35%, transparent); }
+  select { border: 1px solid var(--line); background: var(--surface); border-radius: 999px; padding: 4px 10px; font-size: 12.5px; }
+
+  /* ── the P&ID-style timeline: equal columns, one line from centre to centre ── */
+  .tl { display: grid; grid-auto-flow: column; grid-auto-columns: minmax(64px, 1fr); }
+  .tn { position: relative; display: flex; flex-direction: column; align-items: center; text-align: center; }
+  .tn-line { position: absolute; top: 10px; left: 50%; width: 100%; height: 2px; background: var(--line); overflow: hidden; z-index: 0; }
+  .tn:last-child .tn-line { display: none; }
+  .tn-line i { position: absolute; top: 0; bottom: 0; left: 0; width: 0; background: var(--green); transition: width .55s cubic-bezier(.4,0,.2,1); }
+  .tn.done .tn-line i { width: 100%; }
+  .tn.running .tn-line i, .tn.waiting .tn-line i { width: 38%; background: linear-gradient(90deg, rgba(43,108,176,0), rgba(43,108,176,.75), rgba(43,108,176,0)); animation: tntravel 1.6s ease-in-out infinite; transition: none; }
+  .tn.waiting .tn-line i { background: linear-gradient(90deg, rgba(197,138,18,0), rgba(197,138,18,.6), rgba(197,138,18,0)); }
+  @keyframes tntravel { from { transform: translateX(-100%); } to { transform: translateX(265%); } }
+  .tn-dot { position: relative; z-index: 1; width: 22px; height: 22px; border-radius: 50%; background: var(--surface); border: 1.5px solid color-mix(in srgb, var(--ink) 22%, transparent); display: flex; align-items: center; justify-content: center; transition: background .3s, border-color .3s; font-size: 10.5px; font-weight: 700; color: var(--mute); }
+  .tn-dot svg { position: absolute; width: 12px; height: 12px; fill: none; stroke: #fff; stroke-width: 2.2; stroke-linecap: round; stroke-linejoin: round; opacity: 0; transform: scale(.4); transition: opacity .2s, transform .25s cubic-bezier(.3,1.6,.5,1); }
+  .tn-dot b { position: absolute; width: 8px; height: 8px; border-radius: 50%; background: #fff; opacity: 0; transform: scale(.4); transition: opacity .2s, transform .2s; }
+  .tn-dot::before { content: ""; position: absolute; inset: -5px; border-radius: 50%; background: var(--blue-soft); opacity: 0; transform: scale(.7); }
+  .tn.done .tn-dot { background: var(--green); border-color: var(--green); color: transparent; }
+  .tn.done .tn-dot svg { opacity: 1; transform: scale(1); }
+  .tn.running .tn-dot { background: var(--blue); border-color: var(--blue); color: transparent; }
+  .tn.running .tn-dot b { opacity: 1; transform: scale(1); }
+  .tn.running .tn-dot::before { animation: tnbreathe 1.8s ease-out infinite; }
+  @keyframes tnbreathe { 0% { opacity: .9; transform: scale(.75); } 100% { opacity: 0; transform: scale(1.45); } }
+  .tn.waiting .tn-dot { background: var(--amber); border-color: var(--amber); color: transparent; }
+  .tn.waiting .tn-dot::after { content: ""; position: absolute; width: 6px; height: 8px; border-left: 2px solid #fff; border-right: 2px solid #fff; }
+  .tn.waiting .tn-dot::before { background: rgba(197,138,18,.2); animation: tnbreathe 1.8s ease-out infinite; }
+  .tn.failed .tn-dot { background: var(--red); border-color: var(--red); color: transparent; }
+  .tn.failed .tn-dot::after { content: "!"; position: absolute; color: #fff; font: 700 12px system-ui; }
+  .tn.pop .tn-dot { animation: tnpop .4s cubic-bezier(.3,1.5,.5,1) 1; }
+  @keyframes tnpop { 0% { transform: scale(.8); } 60% { transform: scale(1.14); } 100% { transform: scale(1); } }
+  .tn-lbl { margin-top: 6px; font-size: 11.5px; color: var(--mute); white-space: nowrap; padding: 0 2px; }
+  .tn.running .tn-lbl, .tn.waiting .tn-lbl { color: var(--ink); font-weight: 600; }
+  .tn.done .tn-lbl { color: var(--ink-2); }
+  .tn.failed .tn-lbl { color: var(--red); font-weight: 600; }
+  .tn-dur { font: 400 10px var(--mono); color: var(--mute); min-height: 13px; }
+  @media (prefers-reduced-motion: reduce) { .tn-line i, .tn-dot, .tn-dot svg { transition: none !important; } .tn.running .tn-dot::before, .tn.waiting .tn-dot::before, .tn.pop .tn-dot, .tn.running .tn-line i, .tn.waiting .tn-line i { animation: none !important; } }
+
+  .flow { padding: 12px 24px 0; overflow-x: auto; }
+  .flow .tl { min-width: 640px; }
+  /* the one sentence that says where you are */
+  .now { display: flex; align-items: center; gap: 12px; padding: 10px 24px 12px; }
+  .now-step { flex: none; font-size: 11.5px; font-weight: 600; color: var(--mute); text-transform: uppercase; letter-spacing: .5px; }
+  .now-txt { flex: 1; min-width: 0; font-size: 14px; }
+  .now-txt b { font-weight: 600; }
+  .pill { display: inline-flex; align-items: center; gap: 7px; height: 26px; padding: 0 11px; border-radius: 999px; font-size: 12px; font-weight: 600; background: var(--raised); color: var(--ink-2); white-space: nowrap; flex: none; }
+  .pill .spin { width: 11px; height: 11px; border-radius: 50%; border: 1.75px solid currentColor; border-right-color: transparent; display: none; animation: spin .9s linear infinite; }
+  .pill.running { background: var(--blue-soft); color: var(--blue); } .pill.running .spin { display: inline-block; }
+  .pill.waiting { background: var(--amber-soft); color: var(--amber); }
+  .pill.done { background: var(--green-soft); color: var(--green); }
+  .pill.failed { background: var(--red-soft); color: var(--red); }
+  .elapsed { font: 500 11.5px var(--mono); color: var(--mute); min-width: 38px; text-align: right; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* ── hero (no drawing yet) ── */
+  .hero { max-width: 780px; margin: 9vh auto 0; padding: 0 20px; text-align: center; }
+  .hero h1 { font-size: 28px; font-weight: 600; margin: 0 0 6px; letter-spacing: -.01em; }
+  .hero p.lead { color: var(--ink-2); margin: 0 0 22px; }
+  .composer { text-align: left; border: 1px solid var(--line); border-radius: 26px; background: var(--surface); box-shadow: var(--shadow); padding: 10px 10px 10px 18px; }
+  .composer .row1 { display: flex; align-items: center; gap: 8px; }
+  .composer input { border: 0; padding: 10px 0; background: transparent; font-family: var(--mono); font-size: 13.5px; }
+  .composer .row2 { display: flex; align-items: center; gap: 6px; padding: 4px 0 2px; flex-wrap: wrap; }
+  .send { width: 36px; height: 36px; border-radius: 50%; border: 0; background: var(--btn); color: var(--btn-ink); display: flex; align-items: center; justify-content: center; flex: none; }
+  .send:disabled { opacity: .25; cursor: not-allowed; }
+  .send svg { width: 16px; height: 16px; stroke: currentColor; stroke-width: 2.2; fill: none; stroke-linecap: round; stroke-linejoin: round; }
+  .rootline { font-size: 12px; color: var(--mute); margin: 8px 18px 0; text-align: left; }
+  .rootline input { display: inline-block; width: auto; min-width: 280px; border: 0; border-bottom: 1px dashed var(--line); border-radius: 0; padding: 2px 4px; font-family: var(--mono); font-size: 12px; background: transparent; }
+  .cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 10px; margin-top: 26px; text-align: left; }
+  .card-s { border: 1px solid var(--line); border-radius: 16px; padding: 12px 14px; background: transparent; text-align: left; }
+  .card-s:hover { background: var(--raised); }
+  .card-s b { display: block; font-weight: 500; font-size: 13.5px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .card-s span { font-size: 12px; color: var(--mute); }
+  .howto { margin-top: 28px; text-align: left; border-radius: 16px; background: var(--raised); padding: 14px 18px; font-size: 13px; color: var(--ink-2); }
+  .howto ol { margin: 6px 0 0; padding-left: 18px; } .howto li { margin: 3px 0; }
+
+  /* ── building ── */
+  .card { border: 1px solid var(--line); border-radius: 16px; background: var(--surface); padding: 16px 18px; margin-bottom: 16px; }
+  .card h3 { margin: 0 0 4px; font-size: 15px; font-weight: 600; }
+  .bar { height: 6px; border-radius: 3px; background: var(--raised); overflow: hidden; margin: 12px 0 8px; }
+  .bar i { display: block; height: 100%; width: 30%; border-radius: 3px; background: var(--blue); animation: slide 1.3s infinite ease-in-out; }
+  .bar.det i { animation: none; transition: width .5s; }
+  @keyframes slide { 0% { margin-left: -30%; } 100% { margin-left: 100%; } }
+  .err { background: var(--red-soft); color: var(--red); border-radius: 12px; padding: 10px 14px; font-size: 13px; margin: 10px 0; }
+  .ok-box { background: var(--green-soft); border-radius: 12px; padding: 12px 14px; margin: 10px 0; }
+
+  /* ── tree screen ── */
+  .kpis { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 12px; }
+  .kpi { padding: 0 20px 0 0; display: flex; gap: 6px; align-items: baseline; }
+  .kpi .v { font-size: 13.5px; font-weight: 600; font-variant-numeric: tabular-nums; }
+  .kpi .k { font-size: 12px; color: var(--ink-2); }
+  .kpi.warn .v { color: var(--amber); } .kpi.bad .v { color: var(--red); } .kpi.ok .v { color: var(--green); }
+  .kpi.pick { cursor: pointer; } .kpi.pick.on { outline: 2px solid var(--ink); }
+  .layout { display: grid; grid-template-columns: minmax(0, 1fr) 14px var(--sidew, clamp(440px, 32vw, 680px)); gap: 6px; align-items: start; }
+  /* drag the panel's left edge to resize it; double-click to switch normal / wide */
+  .side-grip { position: sticky; top: 150px; height: calc(100vh - 170px); width: 14px; cursor: col-resize; border-radius: 6px; }
+  .side-grip:hover { background: var(--raised); }
+  .side-grip::after { content: ""; position: absolute; left: 4px; top: 50%; height: 44px; margin-top: -22px; width: 3px; border-radius: 2px; background: var(--line); }
+  .side-grip:hover::after, .side-grip.on::after { background: var(--blue); }
+  body.resizing { cursor: col-resize; user-select: none; }
+  @media (max-width: 1100px) { .layout { grid-template-columns: 1fr !important; } .side-grip { display: none; } }
+  #result.wrap { max-width: none; padding: 12px 28px 32px; }
+  #result .tree { max-height: calc(100vh - 300px); min-height: 320px; }
+  #result .side { top: 140px; max-height: calc(100vh - 150px); }
+  .lbl.match { font-weight: 600; }
+  .qwrap { position: relative; flex: 1; max-width: 560px; min-width: 240px; }
+  .qwrap input[type=text] { max-width: none !important; padding-right: 34px; }
+  .qwrap .qx { position: absolute; right: 6px; top: 50%; transform: translateY(-50%); border: 0; background: transparent; color: var(--mute); font-size: 16px; padding: 2px 6px; border-radius: 999px; }
+  .qwrap .qx:hover { background: var(--hover); color: var(--ink); }
+  .viewopts { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; font-size: 12.5px; color: var(--ink-2); margin: -2px 0 8px; }
+  .viewopts label { display: flex; gap: 5px; align-items: center; }
+  .tabs { display: inline-flex; gap: 2px; background: var(--raised); padding: 3px; border-radius: 999px; margin-bottom: 12px; flex-wrap: wrap; }
+  .tabs button { border: 0; background: transparent; padding: 5px 13px; border-radius: 999px; font-size: 13px; color: var(--ink-2); }
+  .tabs button.on { background: var(--surface); color: var(--ink); font-weight: 500; box-shadow: 0 1px 2px rgba(0,0,0,.08); }
+  .toolbar { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-bottom: 10px; }
+  .toolbar input[type=text] { max-width: 320px; border-radius: 999px; padding: 7px 14px; }
+  .toolbar label { display: flex; gap: 5px; align-items: center; font-size: 12.5px; color: var(--ink-2); }
+  .hint { background: var(--raised); border-radius: 12px; padding: 9px 14px; margin: 0 0 10px; font-size: 13px; color: var(--ink-2); }
+  .hint b { color: var(--ink); font-weight: 600; }
+  .tree { font-size: 13.5px; max-height: 68vh; overflow: auto; padding-right: 6px; }
+  .tree ul { list-style: none; margin: 0; padding-left: 20px; border-left: 1px solid var(--line-2); }
+  .tree > ul { padding-left: 0; border-left: 0; }
+  .node { display: flex; align-items: center; gap: 6px; padding: 3px 8px; border-radius: 8px; cursor: pointer; white-space: nowrap; }
+  .node:hover { background: var(--raised); }
+  .node.sel { background: var(--hover); }
+  .node.hit { outline: 2px solid var(--amber); }
+  .node.wbon { box-shadow: inset 3px 0 0 var(--blue); background: var(--blue-soft); }
+  /* selection: a checkbox per block row, a placements picker for x N rows */
+  .node .pick { width: 15px; height: 15px; margin: 0 2px 0 0; accent-color: var(--blue); cursor: pointer; flex: none; }
+  .node .pick-sp { width: 17px; flex: none; }
+  .node.picked { background: var(--blue-soft); }
+  .plc { border: 0; background: transparent; border-radius: 6px; padding: 0 6px; font-size: 12px; color: var(--blue); line-height: 20px; text-decoration: underline; text-underline-offset: 2px; text-decoration-color: color-mix(in srgb, var(--blue) 35%, transparent); }
+  .plc:hover { background: var(--blue-soft); } .plc.narrow { font-weight: 600; text-decoration: none; background: var(--blue-soft); }
+  .plist { margin: 2px 0 6px 46px; border: 1px solid var(--line); border-radius: 12px; background: var(--surface); padding: 8px 10px; font-size: 12.5px; white-space: normal; max-width: 720px; cursor: default; }
+  .plist .ph { display: flex; gap: 8px; align-items: center; margin-bottom: 6px; color: var(--ink-2); }
+  .plist .ph b { color: var(--ink); }
+  .plist table { border-collapse: collapse; width: 100%; } .plist td { padding: 3px 6px; border-top: 1px solid var(--line-2); white-space: nowrap; }
+  .plist td.num { text-align: right; font-variant-numeric: tabular-nums; }
+  .plist tr.on td { background: var(--blue-soft); }
+  .plist tr.cadsel td { background: var(--amber-soft); font-weight: 600; }
+  .node.cadsel { outline: 2px solid var(--amber); }
+  .plist a { text-decoration: underline; cursor: pointer; color: var(--ink-2); }
+  .selbar { margin: 0 0 6px; padding: 4px 8px !important; border-radius: 10px !important; font-size: 13px !important;
+    background: var(--blue-soft) !important;
+    display: flex; align-items: center; gap: 10px; flex-wrap: wrap; border: 1px solid color-mix(in srgb, var(--blue) 35%, transparent);
+    border-radius: 12px; padding: 8px 12px; margin: 0 0 8px; font-size: 13px; }
+  .selbar .sl { flex: 1; min-width: 220px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; } .selbar .sl small { color: var(--ink-2); margin-left: 8px; }
+  .tw { width: 20px; height: 22px; line-height: 22px; margin-left: -4px; color: var(--mute); font-size: 11px; text-align: center; flex: none; border-radius: 5px; }
+  .tw:hover { background: var(--hover); color: var(--ink); }
+  #tree:focus { outline: none; } #tree:focus-visible .node.sel { box-shadow: inset 0 0 0 2px color-mix(in srgb, var(--blue) 55%, transparent); }
+  .ic { width: 18px; text-align: center; flex: none; opacity: .8; }
+  .lbl { overflow: hidden; text-overflow: ellipsis; }
+  .cnt { color: var(--mute); font-variant-numeric: tabular-nums; }
+  .k-file > .lbl { font-weight: 600; }
+  .k-xref > .lbl { color: var(--blue); font-weight: 600; }
+  .k-group > .lbl { color: var(--ink-2); font-weight: 600; }
+  .tree li.hidrow > .node { display: none; }
+  .tree li.hidrow > ul { padding-left: 0; border-left: 0; }
+  /* columns on the right of each block row (and their heading above the tree) */
+  .node .cols, .thead .cols { margin-left: auto; padding-left: 18px; display: flex; flex: none; font-size: 12px; font-variant-numeric: tabular-nums; color: var(--mute); }
+  .cols > span { text-align: right; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .cols .c-pos { width: 170px; } .cols .c-nest { width: 84px; } .cols .c-ent { width: 84px; } .cols .c-note { width: 96px; text-align: left; padding-left: 14px; }
+  .cols .at0 { color: var(--green); font-weight: 600; } .cols .part { color: var(--amber); font-weight: 600; } .cols .warn { color: var(--red); font-weight: 600; }
+  .thead { display: flex; align-items: center; padding: 0 8px 4px; border-bottom: 1px solid var(--line-2); margin-bottom: 4px; font-size: 12px; color: var(--ink-2); font-weight: 600; }
+  .thead .cols { color: var(--ink-2); font-size: 12px; }
+  .thead [data-sort] { cursor: pointer; user-select: none; } .thead [data-sort]:hover { color: var(--ink); }
+  .thead [data-sort].on { color: var(--ink); } .thead i { font-style: normal; font-size: 10px; }
+  .cols .c-cnt { width: 70px; }
+  @media (max-width: 1500px) { .cols .c-nest, .cols .c-note { display: none; } }
+  /* inside the side panels a tag is coloured text, not a pill */
+  .det .tg, .wb .tg { background: none; padding: 0; font-size: inherit; line-height: inherit; }
+  .node { min-height: 30px; user-select: none; }
+  .srch { display: flex; align-items: center; gap: 12px; padding: 4px 6px; font-size: 13px; flex-wrap: wrap; }
+  .srch .nav { display: inline-flex; align-items: center; gap: 4px; font-variant-numeric: tabular-nums; }
+  .node.cur { box-shadow: inset 3px 0 0 var(--amber); background: var(--amber-soft); }
+  .lbl mark { background: var(--amber-soft); color: inherit; border-radius: 3px; padding: 0 1px; font-weight: 700; }
+  .k-geo > .lbl { color: var(--mute); font-style: italic; }
+  .tg { font-size: 11px; padding: 0 7px; border-radius: 999px; background: var(--raised); color: var(--ink-2); flex: none; line-height: 18px; }
+  .tg.out, .tg.src-other { background: var(--amber-soft); color: var(--amber); font-weight: 600; }
+  .tg.bad, .tg.src-notfound { background: var(--red-soft); color: var(--red); font-weight: 600; }
+  .tg.x { background: var(--blue-soft); color: var(--blue); }
+  .tg.nb { background: var(--blue-soft); color: var(--blue); font-weight: 600; }
+  .tg.src-model, .tg.src-project, .tg.good { background: var(--green-soft); color: var(--green); font-weight: 600; }
+  .tg.dyn { background: rgba(124,77,180,.12); color: #7c4db4; }
+  .results div { padding: 5px 10px; border-radius: 8px; cursor: pointer; font-size: 13px; }
+  .results div:hover { background: var(--raised); }
+  .crumb { color: var(--mute); font-size: 12px; }
+  table.list { width: 100%; border-collapse: collapse; font-size: 13px; }
+  table.list th, table.list td { text-align: left; padding: 6px 8px; border-bottom: 1px solid var(--line-2); vertical-align: top; }
+  table.list th { color: var(--mute); font-size: 12px; font-weight: 500; }
+  table.list td.num, table.list th.num { text-align: right; font-variant-numeric: tabular-nums; }
+  table.list tr.click { cursor: pointer; } table.list tr.click:hover td { background: var(--raised); }
+  table.list .tg { white-space: nowrap; }
+  #bsFolders label { display: block; font-size: 13px; padding: 2px 0; }
+
+  /* right column */
+  .side { position: sticky; top: 150px; display: flex; flex-direction: column; gap: 14px; max-height: calc(100vh - 170px); overflow: auto; }
+  .det { font-size: 13px; }
+  .guide { margin: 0 0 10px; padding-left: 20px; } .guide li { margin-bottom: 8px; line-height: 1.45; }
+  .det h2, .wb h2 { font-size: 15px; color: var(--ink); margin: 0 0 10px; font-weight: 600; }
+  .det table { width: 100%; border-collapse: collapse; }
+  .det th, .det td { text-align: left; padding: 5px 6px; border-bottom: 1px solid var(--line-2); vertical-align: top; }
+  .det th { color: var(--ink-2); font-weight: 500; width: 40%; }
+  .det td { word-break: break-word; }
+  .det table.list td { white-space: nowrap; word-break: normal; }
+
+  /* ── the WBLOCK panel ── */
+  /* the WBLOCK workflow dialog */
+  .wfm { position: fixed; inset: 0; z-index: 50; background: rgba(16,20,24,.42); display: flex; align-items: center; justify-content: center; }
+  .wfm[hidden] { display: none; }
+  .wf { width: min(1560px, 80vw); height: min(940px, 86vh); background: var(--surface); border-radius: 18px; box-shadow: 0 30px 90px rgba(0,0,0,.32); display: flex; flex-direction: column; overflow: hidden; }
+  @media (max-width: 1100px) { .wf { width: 96vw; height: 94vh; } }
+  .wf-hd { padding: 16px 24px 14px; border-bottom: 1px solid var(--line-2); display: flex; gap: 12px; align-items: flex-start; }
+  .wf-hd h2 { margin: 0 0 2px; font-size: 18px; font-weight: 650; }
+  .wf-body { flex: 1; display: flex; min-height: 0; }
+  .wf-rail { width: 236px; flex: none; border-right: 1px solid var(--line-2); padding: 18px 18px 18px 20px; overflow: auto; background: var(--side); }
+  .wf-rail .rg { font-size: 12.5px; font-weight: 600; color: var(--ink-2); margin: 4px 0 10px; }
+  .wf-rail .rg + .tl { margin-bottom: 18px; }
+  .wf-rail .wf-now { font-size: 12.5px; color: var(--ink-2); border-top: 1px solid var(--line-2); padding-top: 12px; margin-top: 4px; line-height: 1.45; }
+  .wf-main { flex: 1; overflow: auto; padding: 4px 28px 32px; scroll-behavior: smooth; }
+  .wf-main .wb-sec { max-width: 1100px; }
+  .wf-main .wb-sec:first-child { border-top: 0; }
+  .wb-sec.dim { opacity: .45; }
+  /* vertical timeline */
+  .tl.vert { display: flex; flex-direction: column; }
+  .tl.vert .tn { flex-direction: row; align-items: flex-start; text-align: left; gap: 10px; min-height: 48px; cursor: pointer; }
+  .tl.vert .tn-line { top: 24px; left: 10px; width: 2px; height: calc(100% - 26px); }
+  .tl.vert .tn-line i { width: 100%; height: 0; transition: height .55s cubic-bezier(.4,0,.2,1); }
+  .tl.vert .tn.done .tn-line i { height: 100%; width: 100%; }
+  .tl.vert .tn.running .tn-line i, .tl.vert .tn.waiting .tn-line i { animation: none; height: 40%; width: 100%; background: var(--blue); opacity: .5; }
+  .tl.vert .tn.waiting .tn-line i { background: var(--amber); }
+  .tl.vert .tn:last-child .tn-line { display: none; }
+  .tl.vert .tn-lbl { margin-top: 2px; font-size: 13.5px; white-space: normal; padding: 0; }
+  .tl.vert .tn-dur { margin: 4px 0 0 auto; }
+  .wb { border: 1px solid var(--line); border-radius: 18px; background: var(--surface); box-shadow: var(--shadow); padding: 16px 18px; }
+  .wb-hd { display: flex; align-items: flex-start; gap: 10px; }
+  .wb-name { font-size: 16px; font-weight: 600; word-break: break-all; }
+  .wb-crumb { font-size: 12px; color: var(--mute); margin-top: 2px; }
+  .wb .tl { margin: 16px -6px 6px; }
+  .wb-sec { border-top: 1px solid var(--line-2); padding-top: 12px; margin-top: 12px; }
+  .wb-sec h4 { margin: 0 0 6px; font-size: 13.5px; font-weight: 600; display: flex; align-items: center; gap: 8px; }
+  .wb-sec h4 .n { width: 20px; height: 20px; border-radius: 50%; background: var(--btn); color: var(--btn-ink); font-size: 11px; display: inline-flex; align-items: center; justify-content: center; }
+  .wb p { margin: 4px 0 8px; }
+  .wb ul.what { margin: 6px 0 10px; padding-left: 18px; color: var(--ink-2); } .wb ul.what li { margin: 3px 0; }
+  .inst { max-height: 240px; overflow: auto; border: 1px solid var(--line-2); border-radius: 12px; }
+  tr.chosen td { background: var(--red-soft) !important; }
+  .field { margin: 8px 0; } .field label { display: block; font-size: 12px; color: var(--ink-2); margin-bottom: 4px; font-weight: 500; }
+  .field .in { display: flex; gap: 6px; align-items: center; }
+  .checks { margin: 6px 0; font-size: 12.5px; } .checks div { padding: 2px 0; }
+  .checks .p { color: var(--green); font-weight: 700; } .checks .w { color: var(--amber); font-weight: 700; } .checks .f { color: var(--red); font-weight: 700; }
+  details.log summary { cursor: pointer; color: var(--ink-2); font-size: 12.5px; margin-top: 10px; }
+  details.log pre { font: 11.5px var(--mono); background: var(--raised); padding: 10px; border-radius: 10px; white-space: pre-wrap; max-height: 240px; overflow: auto; }
+  .big-ok { display: flex; gap: 10px; align-items: flex-start; }
+  .big-ok .ck { width: 28px; height: 28px; border-radius: 50%; background: var(--green); color: #fff; display: flex; align-items: center; justify-content: center; flex: none; font-weight: 700; }
+
+  .o-title { font-size: 13.5px; color: var(--ink); margin: 16px 0 6px; font-weight: 600; }
+  .origin { border: 1px solid var(--line-2); border-radius: 14px; padding: 10px 12px; background: var(--raised); }
+  .o-hd { margin-bottom: 6px; }
+  .o-row { display: grid; grid-template-columns: 112px 1fr; gap: 8px; padding: 6px 0; border-top: 1px solid var(--line-2); font-size: 12.5px; }
+  .o-row:first-of-type { border-top: 0; }
+  .o-k { color: var(--ink-2); font-weight: 500; }
+  ol.o-chain { margin: 0; padding-left: 16px; } ol.o-chain li { margin: 1px 0; }
+  .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--mute); flex: none; }
+  .dot.ok { background: var(--green); } .dot.bad { background: var(--red); } .dot.warn { background: var(--amber); }
+  .cadbox { border-radius: 12px; padding: 10px 12px; margin: 8px 0; font-size: 12.5px; background: var(--raised); }
+  .cadbox.bad { background: var(--red-soft); } .cadbox.ok { background: var(--green-soft); }
+  .cadbox ol { margin: 6px 0 0; padding-left: 18px; } .cadbox li { margin: 2px 0; }
+  .stepl { font: 11.5px var(--mono); margin: 6px 0 0; padding: 0; list-style: none; } .stepl li { padding: 1px 0; }
+  .stepl .y { color: var(--green); } .stepl .n { color: var(--red); }
+  #buildBanner { padding: 10px 24px; font-size: 13px; }
+  #buildBanner.bad { background: var(--red-soft); color: var(--red); }
+  #buildBanner.warn { background: var(--amber-soft); color: var(--amber); }
+  #buildBanner pre { margin: 6px 0 0; font: 11.5px var(--mono); white-space: pre-wrap; color: var(--ink-2); }
+  table.coord { border-collapse: collapse; font-size: 12.5px; margin: 8px 0 4px; width: 100%; }
+  table.coord th { text-align: left; font-weight: 600; padding: 3px 6px; color: var(--ink-2); }
+  table.coord td { padding: 3px 6px; border-top: 1px solid var(--line-2); font-variant-numeric: tabular-nums; font-family: var(--mono); font-size: 12px; }
+  table.coord td:first-child { font-family: inherit; color: var(--ink-2); }
+  /* menus, modals, toast */
+  .ctx { position: fixed; z-index: 40; background: var(--surface); border: 1px solid var(--line); border-radius: 14px; box-shadow: var(--shadow); min-width: 260px; padding: 6px; font-size: 13.5px; }
+  .ctx div { padding: 8px 10px; cursor: pointer; border-radius: 8px; } .ctx div:hover { background: var(--hover); }
+  .ctx div.off { color: var(--mute); cursor: default; font-size: 12.5px; } .ctx div.off:hover { background: none; }
+  .ctx .hd { font-weight: 600; cursor: default; color: var(--ink-2); font-size: 12px; } .ctx .hd:hover { background: none; }
+  .modal { position: fixed; inset: 0; background: rgba(0,0,0,.45); display: none; align-items: center; justify-content: center; z-index: 50; }
+  .modal.on { display: flex; }
+  .modal .box { background: var(--surface); width: min(720px, 94vw); max-height: 80vh; display: flex; flex-direction: column; border-radius: 18px; overflow: hidden; box-shadow: var(--shadow); }
+  .modal .head { padding: 12px 14px; border-bottom: 1px solid var(--line-2); display: flex; gap: 8px; align-items: center; }
+  .modal .list { overflow: auto; flex: 1; padding: 6px; }
+  .modal .list div { padding: 7px 12px; cursor: pointer; display: flex; justify-content: space-between; gap: 10px; border-radius: 8px; }
+  .modal .list div:hover { background: var(--hover); }
+  .modal .foot { padding: 10px 14px; border-top: 1px solid var(--line-2); display: flex; gap: 8px; justify-content: flex-end; }
+  .toast { position: fixed; bottom: 22px; left: 50%; transform: translateX(-50%); background: var(--btn); color: var(--btn-ink); padding: 9px 16px; border-radius: 999px; font-size: 13px; z-index: 60; opacity: 0; transition: opacity .2s; pointer-events: none; }
+  .toast.on { opacity: 1; }
+</style>
+</head>
+<body>
+
+
+<main id="main">
+  <div class="topbar">
+    <div class="nav">
+      <div class="brand"><div class="logo">DW</div>DWG Tools</div>
+      <button class="nl on" onclick="newDrawing()">New Drawing</button>
+      <a class="nl" href="/history">Past Work</a>
+      <a class="nl" href="/logs" target="_blank">Log</a>
+      <div class="nr"><span class="dot" id="cadDot"></span><b>Plant 3D</b><span id="cadShort">not checked</span>
+        <button class="btn sm ghost" onclick="cadCheck()">Check</button><span id="appVer" style="font-size:11.5px"></span></div>
+    </div>
+    <div id="buildBanner" style="display:none"></div>
+    <div class="tb-row">
+      <div style="min-width:0">
+        <div class="tb-title" id="tbTitle">New Drawing</div>
+        <div class="tb-sub" id="tbSub">Choose the copy of the equipment model you want to work on</div>
+      </div>
+      <div class="tb-right" id="tbRight"></div>
+    </div>
+    <div class="flow"><div class="tl" id="flowTl" role="list" aria-label="Where you are in the workflow"></div></div>
+    <div class="now">
+      <span class="now-step" id="nowStep">Step 1 of 7</span>
+      <span class="now-txt" id="nowTxt"></span>
+      <span class="elapsed" id="nowEl"></span>
+      <span class="pill" id="nowPill"><span class="spin"></span><span class="txt">Ready</span></span>
+    </div>
+  </div>
+
+  <!-- 1. no drawing yet -->
+  <section id="hero" class="hero">
+    <h1>Which Drawing Are We Working On?</h1>
+    <p class="lead">Use a deliberate copy of the equipment model. DWG Tools maps every block in it, then turns the blocks you pick into clean WBLOCK files.</p>
+    <div class="composer">
+      <div class="row1">
+        <input type="text" id="src" placeholder="P:\867 - ...\Models\Mechanical\867-M-Equipment - copy.dwg" oninput="srcChanged()" onkeydown="if(event.key==='Enter') build()">
+        <button class="btn ghost sm" onclick="browse()" title="Pick the drawing">Browse&hellip;</button>
+        <button class="send" id="sendBtn" onclick="build()" title="Map it" disabled><svg viewBox="0 0 24 24"><path d="M12 19V5M5 12l7-7 7 7"/></svg></button>
+      </div>
+      <div class="row2"><span class="mute" style="font-size:12px">Pick the drawing, then press the arrow. Mapping runs in the background, so Plant 3D stays free while it reads.</span></div>
+    </div>
+    <details class="rootline"><summary style="cursor:pointer">Options (Rarely Needed)</summary>
+      <div style="margin-top:8px">Project folder: <input type="text" id="root" placeholder="worked out from the drawing"><br>
+        <span class="mute">Files outside this folder get flagged in the tree. It is filled in from the drawing's path.</span></div>
+      <div style="margin-top:10px">Read the drawing with:
+        <span id="engine"><button class="chip on" data-v="console" onclick="seg(this)">Background (Recommended)</button>
+          <button class="chip" data-v="session" onclick="seg(this)">My Open Plant 3D</button></span><br>
+        <span class="mute">Background uses a hidden copy of AutoCAD, so your Plant 3D stays free and nothing pops up. It gives the same tree.
+          Use "My open Plant 3D" only if the background one can't start.</span></div>
+    </details>
+    <div class="cards" id="recent"></div>
+    <div class="howto"><b style="color:var(--ink)">How it works</b>
+      <ol>
+        <li><b>Map</b> the drawing: every block, what is nested inside it and where it sits. AutoCAD reads a byte copy, never the file itself.</li>
+        <li><b>Right-click a block</b> in the tree and choose <i>Create WBLOCK</i>.</li>
+        <li><b>Light up:</b> Plant 3D highlights every occurrence and zooms to them. Nothing is drawn into the drawing.</li>
+        <li><b>Choose one:</b> the occurrence that sets the coordinates. Click a row, or click it in CAD.</li>
+        <li><b>Save:</b> one clean drawing, exploded to layer 0, base point = master 0,0,0. Insert it at 0,0 in the new master and it lands right back here.</li>
+      </ol>
+    </div>
+  </section>
+
+  <!-- 2. mapping -->
+  <section id="building" class="wrap" style="display:none">
+    <div class="card" style="max-width:780px;margin:6vh auto 0">
+      <h3 id="bTitle">Mapping</h3>
+      <div class="muted" id="bSub"></div>
+      <div class="bar"><i></i></div>
+      <div id="bNow"><b>Starting</b></div>
+      <p class="mute" id="bHow" style="font-size:12.5px;margin:10px 0 0">Each file is byte-copied first and AutoCAD reads only the copy. Every original is fingerprinted (SHA-256) before and after. A large drawing can take a few minutes.</p>
+      <div id="bErr"></div>
+      <div style="display:flex;gap:8px;margin-top:12px"><button class="btn sm" id="bCancel" onclick="cancelBuild()">Stop</button></div>
+    </div>
+  </section>
+
+  <!-- 3. the tree -->
+  <section id="result" class="wrap" style="display:none">
+    <div class="kpis" id="kpis"></div>
+    <div class="layout">
+      <div>
+        <div class="tabs">
+          <button class="on" data-t="tree" onclick="tab(this)">Blocks</button>
+          <button data-t="blocks" onclick="tab(this)">Block List</button>
+          <button data-t="sources" onclick="tab(this)">Source Files</button>
+          <button data-t="files" onclick="tab(this)">Files &amp; Xrefs</button>
+        </div>
+        <div id="t-tree">
+          <div class="toolbar">
+            <div class="qwrap"><input type="text" id="q" placeholder="Search blocks  (press / to jump here)" oninput="search()" onkeydown="if(event.key==='Enter'){event.preventDefault();matchGo(event.shiftKey?-1:1)} else if(event.key==='Escape'){searchClear()}"><button class="qx" onclick="searchClear()" title="Clear the search">&times;</button></div>
+            <button class="btn sm primary" onclick="cadSel()" title="Select a block in Plant 3D first (or click one when asked); the tree opens to it">Find My CAD Selection</button>
+            <span style="margin-left:auto"></span>
+            <button class="btn sm ghost" onclick="expandDepth(2)">Expand 2 Levels</button>
+            <button class="btn sm ghost" onclick="collapseAll()">Collapse All</button>
+          </div>
+          <div class="viewopts">
+            <span class="mute">Tick blocks to merge them into one WBLOCK. Double-click a row to open it; arrow keys and Space work too.</span>
+            <span style="margin-left:auto"></span>
+            <label>Show <select id="optPos" onchange="rerender(); posSummary()">
+              <option value="all">All Blocks</option>
+              <option value="origin">At 0,0</option>
+              <option value="away">Not at 0,0 Yet</option>
+            </select></label>
+            <label>Sort <select id="sortBy" onchange="SORTDIR = 1; saveSort(); rerender(); sortHeads(); if ($('t-blocks').innerHTML) blocksTab()">
+              <option value="pos">At 0,0 First</option>
+              <option value="nested">Most Nested</option>
+              <option value="depth">Deepest Nesting</option>
+              <option value="count">Most Placed</option>
+              <option value="entities">Most Entities</option>
+              <option value="name">Name (A–Z)</option>
+              <option value="file">Drawing Order</option>
+            </select></label>
+            <label><input type="checkbox" id="optGeo" onchange="viewSave(); rerender()"> Geometry</label>
+            <label><input type="checkbox" id="optAnon" onchange="viewSave(); rerender()"> Anonymous</label>
+            <label><input type="checkbox" id="optLayouts" onchange="viewSave(); rerender()"> Layouts</label>
+          </div>
+          <div class="results" id="results"></div>
+          <div class="thead"><input type="checkbox" id="selAll" class="pick" style="margin-left:24px;margin-right:10px" title="Tick every block shown at this level" onchange="selAllToggle(this.checked)"><span data-sort="name" onclick="sortBy('name')">Block <i></i></span><span class="cols"><span class="c-cnt" data-sort="count" onclick="sortBy('count')">Placed <i></i></span><span class="c-pos" data-sort="pos" onclick="sortBy('pos')">Position <i></i></span><span class="c-nest" data-sort="nested" onclick="sortBy('nested')">Nested <i></i></span><span class="c-ent" data-sort="entities" onclick="sortBy('entities')">Entities <i></i></span><span class="c-note"></span></span></div>
+          <div class="selbar" id="selbar" style="display:none"></div>
+          <div class="tree" id="tree" tabindex="0" aria-label="Blocks in the drawing. Arrow keys move, Space ticks, Enter creates a WBLOCK."></div>
+        </div>
+        <div id="t-files" style="display:none"></div>
+        <div id="t-outside" style="display:none"></div>
+        <div id="t-blocks" style="display:none"></div>
+        <div id="t-sources" style="display:none">
+          <p class="muted">AutoCAD does not record which .dwg a block was inserted from, so this matches each block's <b>name</b> to <b>.dwg file names</b> in the folders below.
+            It only lists folders: no drawing is opened, copied or changed. Bound-xref blocks (<code>NAME$0$block</code>) are matched on the xref name.</p>
+          <div id="bsFolders"></div>
+          <div class="toolbar">
+            <input type="text" id="bsAdd" placeholder="Add another folder, e.g. P:\866 - Project name" style="flex:1;max-width:none">
+            <button class="btn sm" onclick="bsAddFolder()">Add</button>
+            <button class="btn primary sm" id="bsGo" onclick="bsScan(false)">Find Source Files</button>
+            <button class="btn sm" onclick="bsScan(true)" title="Ignore the folder listings remembered since the app started">Rescan</button>
+          </div>
+          <div id="bsProg" class="muted"></div>
+          <div id="bsOut"></div>
+        </div>
+      </div>
+      <div class="side-grip" id="sideGrip" title="Drag to resize the panel; double-click for wide / normal"></div>
+      <div class="side" id="side">
+
+        <div class="card det" id="det"></div>
+      </div>
+    </div>
+  </section>
+</main>
+
+<div class="wfm" id="wfm" hidden><div class="wf" id="wb" role="dialog" aria-modal="true" aria-label="WBLOCK workflow"></div></div>
+<div class="modal" id="modal">
+  <div class="box">
+    <div class="head">
+      <button class="btn sm" onclick="browseUp()">&uarr; Up</button>
+      <input type="text" id="bpath" class="path" onkeydown="if(event.key==='Enter') browseGo(this.value)">
+      <button class="btn sm" onclick="browseGo(document.getElementById('bpath').value)">Go</button>
+    </div>
+    <div class="list" id="blist"></div>
+    <div class="foot"><button id="bUse" class="btn primary" style="display:none" onclick="useFolder()">Use This Folder</button><button class="btn" onclick="closeModal()">Cancel</button></div>
+  </div>
+</div>
+<div class="toast" id="toast"></div>
+
+<script>
+const $ = id => document.getElementById(id);
+const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const fmt = n => (n === null || n === undefined || n === '') ? '–' : Number(n).toLocaleString();
+const mb = b => b ? (b / 1048576).toFixed(1) + ' MB' : '–';
+let T = null, jobId = null, poll = null, browseState = {};
+let selKey = null;
+try { const s0 = localStorage.getItem('treeSort'); if (s0) $('sortBy').value = s0; } catch (e) {}
+try { const v0 = JSON.parse(localStorage.getItem('treeView') || 'null'); if (v0) for (const k of ['optGeo', 'optAnon', 'optLayouts']) if (k in v0) $(k).checked = v0[k]; } catch (e) {}
+function posSummary() {
+  const v = $('optPos').value; if (v === 'all' || FILTER) return;
+  const n = document.querySelectorAll('#tree li[data-key^="f0/ms/"]').length;
+  toast(v === 'origin' ? 'Showing only blocks at 0,0.' : 'Showing only blocks not at 0,0 yet.');
+}
+function viewSave() { try { localStorage.setItem('treeView', JSON.stringify({ optGeo: $('optGeo').checked, optAnon: $('optAnon').checked, optLayouts: $('optLayouts').checked })); } catch (e) {} }
+
+// ---------------------------------------------------------------- model
+// Per file: definitions by name; memoised "entities if expanded" and "uses per instance".
+function prepare() {
+  for (const f of T.files) {
+    f._defs = f.definitions || {};
+    f._xrefByName = {};
+    for (const x of (f.xrefs || [])) f._xrefByName[x.name.toLowerCase()] = x;
+    f._exp = {};
+  }
+}
+const fileById = id => T.files.find(f => f.id === id);
+const defOf = (f, name) => f._defs[name] || Object.values(f._defs).find(d => d.name.toLowerCase() === String(name).toLowerCase());
+
+// entities one instance of a block expands to (geometry only, nested multiplied)
+function expanded(f, name, stack) {
+  if (f._exp[name] !== undefined) return f._exp[name];
+  const d = defOf(f, name); if (!d) return 0;
+  stack = stack || new Set(); if (stack.has(name)) return 0; stack.add(name);
+  let n = Object.values(d.content.geometry || {}).reduce((a, b) => a + b, 0);
+  for (const r of d.content.references || []) if (r.kind === 'block') n += r.count * expanded(f, r.block, stack);
+  stack.delete(name);
+  return f._exp[name] = n;
+}
+// block instances nested inside ONE instance of a block, all levels, multiplied
+// (a block holding 3 x B, where each B holds 4 x C, contains 3 + 12 = 15)
+function nestedOf(f, name, stack) {
+  f._nest = f._nest || {};
+  if (f._nest[name] !== undefined) return f._nest[name];
+  const d = defOf(f, name); if (!d) return 0;
+  stack = stack || new Set(); if (stack.has(name)) return 0; stack.add(name);
+  let n = 0;
+  for (const r of d.content.references || []) if (r.kind === 'block') n += r.count * (1 + nestedOf(f, r.block, stack));
+  stack.delete(name);
+  return f._nest[name] = n;
+}
+function sortMode() { const e = $('sortBy'); return e ? e.value : 'nested'; }
+let SORTDIR = 1;     // 1 = the natural order of the mode (biggest first, A-Z, 0,0 first); -1 = reversed
+function posRank(r) {
+  const pl = r.placements || [], n = r.count || pl.length, o = pl.filter(atOrigin).length;
+  return !pl.length ? -1 : o && o === n ? 3 : o ? 2 : pl.some(p => Math.abs(p.x) < 1e-6 && Math.abs(p.y) < 1e-6) ? 1 : 0;
+}
+function sortBy(mode) {
+  const sel = $('sortBy');
+  if (sel.value === mode) SORTDIR = -SORTDIR; else { sel.value = mode; SORTDIR = 1; }
+  saveSort(); rerender(); sortHeads();
+  if ($('t-blocks').innerHTML) blocksTab();
+}
+function sortHeads() {
+  const m = sortMode();
+  document.querySelectorAll('.thead [data-sort]').forEach(h => {
+    const on = h.dataset.sort === m;
+    h.classList.toggle('on', on);
+    h.querySelector('i').innerHTML = on ? (SORTDIR > 0 ? (m === 'name' ? '&#9650;' : '&#9660;') : (m === 'name' ? '&#9660;' : '&#9650;')) : '';
+  });
+}
+function saveSort() { try { localStorage.setItem('treeSort', sortMode()); } catch (e) {} }
+// order references for the tree; xrefs keep their place at the end of the group
+function sortRefs(f, refs) {
+  const m = sortMode(); if (m === 'file') return SORTDIR > 0 ? refs : refs.slice().reverse();
+  const key = r => {
+    if (r.kind !== 'block') return -1;
+    if (m === 'pos') return posRank(r);
+    if (m === 'nested') return nestedOf(f, r.block);
+    if (m === 'depth') return depthOf(f, r.block);
+    if (m === 'count') return r.count;
+    if (m === 'entities') return expanded(f, r.block) * r.count;
+    return 0;
+  };
+  const a = refs.slice();
+  const byName = (x, y) => String(x.block).localeCompare(String(y.block), undefined, { numeric: true, sensitivity: 'base' });
+  if (m === 'name') a.sort((x, y) => byName(x, y) * SORTDIR);
+  else a.sort((x, y) => ((key(y) - key(x)) * SORTDIR) || byName(x, y));
+  return a;
+}
+function depthOf(f, name, stack) {
+  const d = defOf(f, name); if (!d) return 0;
+  stack = stack || new Set(); if (stack.has(name)) return 0; stack.add(name);
+  let m = 0; for (const r of d.content.references || []) if (r.kind === 'block') m = Math.max(m, 1 + depthOf(f, r.block, stack));
+  stack.delete(name); return m;
+}
+
+// Virtual nodes: {key, kind, icon, label, count, tags[], data, children()}
+const isAnon = n => /^\*/.test(n);
+function fileNode(f, key, via, seen) {
+  const tags = [];
+  if (f.outsideProject) tags.push(['out', 'OUTSIDE PROJECT']);
+  if (f.status === 'error') tags.push(['bad', 'UNREADABLE']);
+  if (f.unchangedAfter === false) tags.push(['bad', 'CHANGED ON DISK DURING READ']);
+  const nx = (f.xrefs || []).length;
+  if (nx) tags.push(['x', nx + ' xref' + (nx > 1 ? 's' : '')]);
+  return { key, kind: 'file', icon: '&#128196;', label: f.name, count: '', tags, data: { type: 'file', f, via },
+    children: () => fileChildren(f, key, seen || new Set([f.id])) };
+}
+function fileChildren(f, key, seen) {
+  const out = [];
+  if (f.status === 'error') return [{ key: key + '/err', kind: 'geo', icon: '!', label: 'Could not read: ' + f.error, tags: [], children: null }];
+  const ms = f.modelSpace || { references: [], geometry: {} };
+  out.push({ key: key + '/ms', kind: 'group', icon: '&#9634;', label: 'Model space', count: fmt(ms.objects) + ' objects', tags: [], data: { type: 'space', f, c: ms, name: 'Model space' },
+    children: () => contentChildren(f, ms, key + '/ms', new Set(), seen) });
+  if (FILTER) return out;
+  const xs = f.xrefs || [];
+  if (xs.length) out.push({ key: key + '/xr', kind: 'group', icon: '&#10697;', label: 'Xrefs attached to this file', count: xs.length, tags: [], data: { type: 'xreflist', f },
+    children: () => xs.map(x => xrefNode(f, x, key + '/xr/' + x.name, seen)) });
+  if ($('optLayouts').checked) for (const l of f.layouts || []) {
+    if (!(l.content.references || []).length) continue;
+    out.push({ key: key + '/lay/' + l.name, kind: 'group', icon: '&#128462;', label: 'Layout: ' + l.name, count: fmt(l.content.objects) + ' objects', tags: [], data: { type: 'space', f, c: l.content, name: 'Layout ' + l.name },
+      children: () => contentChildren(f, l.content, key + '/lay/' + l.name, new Set(), seen) });
+  }
+  const unused = Object.values(f._defs).filter(d => !d.anonymous && !d.referencedBy && !d.xrefDependent);
+  if (unused.length) out.push({ key: key + '/unused', kind: 'group', icon: '&#8709;', label: 'Defined but not used', count: unused.length, tags: [], data: { type: 'unused', f, list: unused },
+    children: () => unused.map(d => ({ key: key + '/unused/' + d.name, kind: 'block', icon: '&#9635;', label: d.name, count: '', tags: [], data: { type: 'def', f, d }, children: null })) });
+  return out;
+}
+function xrefNode(f, x, key, seenFiles) {
+  const tags = [[x.type === 'overlay' ? '' : 'x', x.type]];
+  if (x.status !== 'found') tags.push([x.status.startsWith('not found') ? 'bad' : '', x.status.toUpperCase()]);
+  const child = x.fileId !== undefined && x.fileId >= 0 ? fileById(x.fileId) : null;
+  if (child && child.outsideProject) tags.push(['out', 'OUTSIDE PROJECT']);
+  return { key, kind: 'xref', icon: '&#10697;', label: x.name, count: x.instances ? '&times;' + x.instances : '', tags, data: { type: 'xref', f, x, child },
+    children: child ? () => (seenFiles.has(child.id) ? [{ key: key + '/cyc', kind: 'geo', icon: '&#8635;', label: 'circular reference back to ' + child.name, tags: [], children: null }]
+                                                    : fileChildren(child, key + '/' + child.id, new Set([...seenFiles, child.id]))) : null };
+}
+// ---------------------------------------------------------------- search = filter
+// While a search is on, the tree holds only the way down to blocks whose name
+// matches (and those blocks themselves). Worked out on the map, so it is instant
+// and never misses one deep inside a big assembly.
+let FILTER = null;
+// loose: case, spaces and punctuation don't matter, and every word you type must
+// appear ("cable 4h" finds "100-M-101$0$2-CABLE TO 4H PAD")
+const normS = x => String(x).toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
+const compactS = x => String(x).toLowerCase().replace(/[^a-z0-9]+/g, '');
+function mkFilter(q, exact) {
+  const ql = q.toLowerCase(), toks = normS(q).split(' ').filter(Boolean), cq = compactS(q);
+  const test = n => {
+    const L = String(n).toLowerCase();
+    if (exact) return L === ql;
+    if (L.includes(ql)) return true;
+    const nn = ' ' + normS(n) + ' ';
+    if (toks.length && toks.every(t => nn.includes(t))) return true;
+    return cq.length >= 3 && compactS(n).includes(cq);
+  };
+  return { q, exact, toks, memo: new Map(), test };
+}
+// the label with what matched marked
+function hl(label) {
+  const raw = String(label), L = raw.toLowerCase(), on = new Array(raw.length).fill(false);
+  const mark = t => { let i = L.indexOf(t); while (t && i >= 0) { for (let k = i; k < i + t.length; k++) on[k] = true; i = L.indexOf(t, i + t.length); } };
+  const ql = FILTER.q.toLowerCase();
+  if (L.includes(ql)) mark(ql); else FILTER.toks.forEach(mark);
+  let out = '', open = false;
+  for (let i = 0; i < raw.length; i++) {
+    if (on[i] && !open) { out += '<mark>'; open = true; } else if (!on[i] && open) { out += '</mark>'; open = false; }
+    out += esc(raw[i]);
+  }
+  return out + (open ? '</mark>' : '');
+}
+function hasMatchInside(f, name) {
+  const k = f.id + '|' + name;
+  if (FILTER.memo.has(k)) return FILTER.memo.get(k);
+  FILTER.memo.set(k, false);                      // cycle guard
+  const d = defOf(f, name); let hit = false;
+  if (d) for (const r of d.content.references || []) {
+    if (FILTER.test(r.block) || (r.kind === 'block' && hasMatchInside(f, r.block))) { hit = true; break; }
+  }
+  FILTER.memo.set(k, hit);
+  return hit;
+}
+const keepRef = (f, r) => FILTER.test(r.block) || (r.kind === 'block' && hasMatchInside(f, r.block));
+function contentChildren(f, c, key, stack, seen, nf) {
+  const out = [];
+  for (const r of sortRefs(f, c.references || [])) {
+    if (FILTER && !nf) { if (!keepRef(f, r)) continue; }
+    else if (!$('optAnon').checked && isAnon(r.block) && r.kind === 'block') continue;
+    if (c === f.modelSpace && r.kind === 'block' && !posFilter(r)) continue;
+    if (r.kind === 'xref') {
+      const x = f._xrefByName[r.block.toLowerCase()];
+      if (x) { const n = xrefNode(f, x, key + '/x:' + r.block, seen); n.count = '&times;' + fmt(r.count); n.data.group = r; out.push(n); continue; }
+    }
+    const bn = blockNode(f, r, key + '/' + r.block, stack, seen, nf);
+    bn.data.top = c === f.modelSpace && f === T.files[0];
+    out.push(bn);
+  }
+  if ($('optGeo').checked && (!FILTER || nf)) {
+    const g = Object.entries(c.geometry || {});
+    if (g.length) {
+      const total = g.reduce((a, [, n]) => a + n, 0);
+      out.push({ key: key + '/geo', kind: 'geo', icon: '&#8901;', label: g.slice(0, 6).map(([k, n]) => fmt(n) + ' ' + k).join(', ') + (g.length > 6 ? ', ...' : ''), count: '', tags: total ? [['', fmt(total) + ' geometry']] : [], data: { type: 'geo', geometry: c.geometry }, children: null });
+    }
+  }
+  return out;
+}
+// where a block sits: [text, class, tooltip]. "0,0" (green) = inserted at the origin, unrotated, scale 1:
+// in this workflow, a block that already carries its own offset (a finished WBLOCK)
+const xy = p => Math.round(p.x) + ', ' + Math.round(p.y);
+function posOf(r) {
+  const pl = r.placements || [], n = r.count || pl.length;
+  const o = pl.filter(atOrigin).length;
+  if (!pl.length) return ['', '', ''];
+  if (o && o === n) return ['&#10003; 0,0' + (n > 1 ? ' (all ' + n + ')' : ''), 'at0', 'Inserted at 0,0,0, rotation 0, scale 1'];
+  if (o) return [o + ' of ' + n + ' at 0,0', 'part', o + ' of the ' + n + ' copies are at 0,0'];
+  const near = pl.filter(p => Math.abs(p.x) < 1e-6 && Math.abs(p.y) < 1e-6).length;
+  if (near) return ['0,0 but rotated/scaled', 'part', 'Inserted at 0,0 but rotated, scaled or mirrored'];
+  return [n === 1 ? xy(pl[0]) : 'none at 0,0', '', n === 1 ? 'Insertion point X, Y' + (pl[0].rotationDeg ? ', rotated ' + pl[0].rotationDeg + '°' : '') : 'Placed ' + n + ' times; see placements'];
+}
+function posFilter(r) {
+  const v = $('optPos') ? $('optPos').value : 'all';
+  if (v === 'all') return true;
+  const pl = r.placements || [], o = pl.filter(atOrigin).length, all0 = pl.length && o === (r.count || pl.length);
+  return v === 'origin' ? o > 0 : !all0;
+}
+const short = n => n >= 1e6 ? (n / 1e6).toFixed(n >= 1e7 ? 0 : 1) + 'M' : n >= 1e4 ? Math.round(n / 1e3) + 'k' : n >= 1e3 ? (n / 1e3).toFixed(1) + 'k' : String(n);
+function blockNode(f, r, key, stack, seen, nf) {
+  const d = defOf(f, r.block);
+  const tags = [];                      // no pills in the tree: everything else is in Details
+  const nb = d ? nestedOf(f, r.block) : 0;
+  const exp = d ? expanded(f, r.block) : 0;
+  const pos = posOf(r);
+  const note = r.clipped ? '<span class="warn" title="Clipped with XCLIP">XCLIP</span>' : d && d.fromBoundXref ? '<span title="Came in with an xref that was later bound">bound xref</span>' : '';
+  const meta = `<span class="cols"><span class="c-cnt">${fmt(r.count)}</span><span class="c-pos ${pos[1]}" title="${esc(pos[2])}">${pos[0]}</span><span class="c-nest">${nb ? short(nb) : ''}</span><span class="c-ent">${exp ? short(exp * r.count) : ''}</span><span class="c-note">${note}</span></span>`;
+  const cyc = stack.has(r.block);
+  return { key, kind: 'block', icon: '', label: r.block, count: r.count > 1 ? '&times;' + fmt(r.count) : '', tags, meta, data: { type: 'block', f, r, d },
+    children: (d && !cyc && ((d.content.references || []).length || Object.keys(d.content.geometry || {}).length)) ? () => {
+      const s2 = new Set(stack); s2.add(r.block); return contentChildren(f, d.content, key, s2, seen, nf || (FILTER && FILTER.test(r.block))); } : null };
+}
+
+// ---------------------------------------------------------------- selection
+// SEL: the block rows ticked for one WBLOCK, all under the same parent row.
+// PT: per row, the placements ticked (handles); no entry = every placement.
+const SEL = { parent: null, rows: new Map() };
+const PT = new Map();
+const PLOPEN = new Set();
+const parentKey = k => k.replace(/\/[^\/]*$/, '');
+const plOf = n => (n.data && n.data.r && n.data.r.placements) || [];
+function ticked(key, n) { const t = ptClean(key, n); return t ? t.size : ((n && n.data && n.data.r && n.data.r.count) || 1); }
+function ptClean(key, n) {
+  const t = PT.get(key); if (!t || !n || !n.data || !n.data.r) return t;
+  const pl = plOf(n), r = n.data.r;
+  if (pl.length < r.count) return t;                       // list incomplete: can't judge
+  const ok = new Set(pl.map(p => p.handle)), keep = new Set([...t].filter(h => ok.has(h)));
+  if (!keep.size || keep.size === r.count) { PT.delete(key); return null; }
+  if (keep.size !== t.size) PT.set(key, keep);
+  return keep;
+}
+function plChipText(n) {
+  const c = n.data.r.count, t = ptClean(n.key, n);
+  return t ? `${t.size} of ${fmt(c)} placements` : `${fmt(c)} placements`;
+}
+function plcChip(n) {
+  const r = n.data.r;
+  if (!r || !(r.count > 1)) return '';
+  return `<button class="plc${ptClean(n.key, n) ? ' narrow' : ''}" title="Choose which placements to use">${plChipText(n)} &#9662;</button>`;
+}
+function rowLabel(key) { const n = kids.get(key); return n ? n.label : key.replace(/^.*\//, ''); }
+// how many placements a ticked row stands for in the drawing (its ticks x each parent's ticks)
+function placementsFor(key) {
+  const names = key.slice(6).split('/');
+  let total = 1;
+  for (let i = 1; i <= names.length; i++) {
+    const k = 'f0/ms/' + names.slice(0, i).join('/'), n = kids.get(k);
+    total *= ticked(k, n);
+  }
+  return total;
+}
+function selToggle(n, on) {
+  const pk = parentKey(n.key);
+  if (on && SEL.rows.size && SEL.parent !== pk) {
+    toast('One level at a time: started a new selection under ' + (pk.endsWith('/ms') ? 'Model space' : rowLabel(pk)) + '.');
+    for (const k of SEL.rows.keys()) { const el = document.querySelector(`#tree li[data-key="${CSS.escape(k)}"] > .node`); if (el) { el.classList.remove('picked'); const c = el.querySelector('.pick'); if (c) c.checked = false; } }
+    SEL.rows.clear();
+  }
+  if (on) { SEL.parent = pk; SEL.rows.set(n.key, n); } else SEL.rows.delete(n.key);
+  if (!SEL.rows.size) SEL.parent = null;
+  const el = document.querySelector(`#tree li[data-key="${CSS.escape(n.key)}"] > .node`);
+  if (el) { el.classList.toggle('picked', on); const c = el.querySelector('.pick'); if (c) c.checked = on; }
+  selDraw();
+}
+// highlight what is ticked, nothing else (no WBLOCK steps)
+async function lightSel() {
+  if (!SEL.rows.size || !T) return;
+  const keys = [...SEL.rows.keys()], b = $('selLight');
+  if (b) { b.disabled = true; b.textContent = 'Lighting Up…'; }
+  const r = await task('find', { drawing: T.source, rows: keys.map(k => namesFor(SEL.rows.get(k))), allow: keys.map(allowFor), focus: 0 });
+  const b2 = $('selLight'); if (b2) { b2.disabled = false; b2.textContent = 'Light Up in CAD'; }
+  if (r.status !== 'OK') { toast(r.message || 'Plant 3D did not answer.'); return; }
+  const n = (r.occurrences || []).length;
+  toast(n + ' lit up in Plant 3D' + (r.truncated ? ' (the first ' + n + ')' : '') + '. Esc in CAD clears it.');
+}
+// the rows "select all" works on: the level of the current ticks, else model space; only what is shown
+function selAllRows() {
+  const parent = SEL.parent || 'f0/ms';
+  return [...document.querySelectorAll('#tree li')].filter(li => parentKey(li.dataset.key) === parent)
+    .map(li => kids.get(li.dataset.key)).filter(n => n && namesFor(n));
+}
+function selAllToggle(on) {
+  const rows = selAllRows();
+  if (on) rows.forEach(n => { if (!SEL.rows.has(n.key)) selToggle(n, true); });
+  else rows.forEach(n => { if (SEL.rows.has(n.key)) selToggle(n, false); });
+  toast(on ? 'Ticked all ' + rows.length + ' shown.' : 'Unticked all.');
+}
+function selAllState() {
+  const box = $('selAll'); if (!box) return;
+  const rows = selAllRows(), on = rows.filter(n => SEL.rows.has(n.key)).length;
+  box.checked = rows.length > 0 && on === rows.length;
+  box.indeterminate = on > 0 && on < rows.length;
+}
+// ---------------------------------------------------------------- resizable side panel
+(function () {
+  const lay = () => document.querySelector('#result .layout');
+  const set = w => { const l = lay(); if (!l) return; if (w) l.style.setProperty('--sidew', w + 'px'); else l.style.removeProperty('--sidew'); };
+  const clamp = w => { const l = lay(); const max = Math.max(420, ((l && l.clientWidth) || (innerWidth - 56)) - 420); return Math.max(380, Math.min(max, w)); };
+  let saved = 0; try { saved = parseInt(localStorage.getItem('sideW') || '0', 10); } catch (e) {}
+  if (saved) setTimeout(() => set(clamp(saved)), 0);
+  document.addEventListener('mousedown', e => {
+    const g = e.target.closest('#sideGrip'); if (!g) return;
+    e.preventDefault(); g.classList.add('on'); document.body.classList.add('resizing');
+    const move = ev => { const l = lay(); if (!l) return; const r = l.getBoundingClientRect(); set(clamp(r.right - ev.clientX - 10)); };
+    const up = () => {
+      g.classList.remove('on'); document.body.classList.remove('resizing');
+      removeEventListener('mousemove', move); removeEventListener('mouseup', up);
+      const v = getComputedStyle(lay()).getPropertyValue('--sidew'); try { localStorage.setItem('sideW', parseInt(v, 10) || 0); } catch (err) {}
+    };
+    addEventListener('mousemove', move); addEventListener('mouseup', up);
+  });
+  document.addEventListener('dblclick', e => {
+    if (!e.target.closest('#sideGrip')) return;
+    const l = lay(), cur = parseInt(l.style.getPropertyValue('--sidew'), 10) || $('side').clientWidth;
+    const wide = clamp(Math.round(l.clientWidth * 0.6));
+    const w = cur >= wide - 20 ? 0 : wide;
+    set(w); try { localStorage.setItem('sideW', w); } catch (err) {}
+  });
+})();
+function selClear() { for (const k of [...SEL.rows.keys()]) selToggle(SEL.rows.get(k), false); }
+function selDraw() {
+  selAllState();
+  const bar = $('selbar'); if (!bar) return;
+  if (!SEL.rows.size) { bar.style.display = 'none'; return; }
+  const keys = [...SEL.rows.keys()];
+  const total = keys.reduce((a, k) => a + placementsFor(k), 0);
+  const where = SEL.parent.endsWith('/ms') ? 'Model space' : rowLabel(SEL.parent);
+  bar.style.display = '';
+  bar.innerHTML = `<div class="sl"><b>${keys.length} block${keys.length > 1 ? 's' : ''} ticked</b> under ${esc(where)} &middot; <b>${fmt(total)}</b> placement${total > 1 ? 's' : ''} in the drawing
+      <small>${keys.slice(0, 6).map(k => esc(rowLabel(k)) + ' &times;' + fmt(placementsFor(k))).join(', ')}${keys.length > 6 ? ', &hellip;' : ''}</small></div>
+    <button class="btn sm" id="selLight" onclick="lightSel()" title="Highlight the ticked blocks in Plant 3D and zoom to them (Esc in CAD clears it)">Light Up in CAD</button>
+    <button class="btn sm primary" onclick="wbOpenSel()">${total > 1 ? 'Create One WBLOCK (' + fmt(total) + ')' : 'Create WBLOCK'}&hellip;</button>
+    <button class="btn sm ghost" onclick="selClear()">Clear</button>`;
+}
+// the placements list under a row: tick which ones count
+function plOpen(n, li, keepOpen) {
+  let box = li.querySelector(':scope > .plist');
+  if (box && !keepOpen) { box.remove(); PLOPEN.delete(n.key); return; }
+  PLOPEN.add(n.key);
+  if (!box) { box = document.createElement('div'); box.className = 'plist'; li.firstChild.after(box); box.onclick = e => e.stopPropagation(); }
+  const r = n.data.r, pl = plOf(n), t = ptClean(n.key, n);
+  const isOn = h => !t || t.has(h);
+  const pk = parentKey(n.key), inParent = pk.endsWith('/ms') ? 'model space' : 'each ' + rowLabel(pk);
+  const parentTimes = pk.endsWith('/ms') ? 1 : placementsFor(pk);
+  box.innerHTML = `<div class="ph"><span><b>${fmt(r.count)}</b> placed in ${esc(inParent)}${parentTimes > 1 ? ` (which is itself used ${fmt(parentTimes)}&times;)` : ''}.
+      Tick the ones to use${t && t.size === 1 ? '; <b>the ticked one sets the coordinates</b>' : ''}.</span>
+      <span style="margin-left:auto;white-space:nowrap"><a data-a="all">All</a> &middot; <a data-a="none">None</a></span></div>
+    <table>${pl.map((p, i) => `<tr class="${isOn(p.handle) ? 'on' : ''}"><td><input type="checkbox" data-h="${esc(p.handle)}"${isOn(p.handle) ? ' checked' : ''}></td>
+      <td>#${i + 1}</td><td class="num">X ${f3(p.x)}</td><td class="num">Y ${f3(p.y)}</td><td class="num">${p.rotationDeg}&deg;${/^-|,-/.test(String(p.scale)) ? ' mirrored' : ''}</td>
+      <td class="mute">${esc(p.layer || '')}</td><td><a data-show="${esc(p.handle)}" title="Highlight just this one in CAD and zoom to it">Show in CAD</a></td></tr>`).join('')}</table>
+    ${pl.length < r.count ? `<div class="mute" style="margin-top:4px">Only the first ${pl.length} of ${fmt(r.count)} are listed in the map. Leave them all ticked to use every one; the WBLOCK panel lists every placement from CAD and lets you untick any.</div>` : ''}`;
+  box.onchange = e => {
+    const h = e.target.dataset.h; if (!h) return;
+    let s2 = PT.get(n.key) || new Set(pl.map(p => p.handle));
+    if (e.target.checked) s2.add(h); else s2.delete(h);
+    if (s2.size === 0) { e.target.checked = true; toast('Keep at least one ticked (untick the row instead).'); return; }
+    if (pl.length >= r.count && s2.size === r.count) PT.delete(n.key); else PT.set(n.key, s2);
+    plRefresh(n, li);
+  };
+  box.querySelectorAll('[data-a]').forEach(a => a.onclick = () => {
+    if (a.dataset.a === 'all') PT.delete(n.key);
+    else { const first = pl[0]; if (first) PT.set(n.key, new Set([first.handle])); toast('Only #1 is ticked now; tick the one you want.'); }
+    plRefresh(n, li);
+  });
+  box.querySelectorAll('[data-show]').forEach(a => a.onclick = () => plShow(n, a.dataset.show));
+}
+function plRefresh(n, li) {
+  plOpen(n, li, true);
+  const chip = li.querySelector(':scope > .node .plc');
+  if (chip) { chip.innerHTML = plChipText(n) + ' &#9662;'; chip.classList.toggle('narrow', !!PT.get(n.key)); }
+  if (!SEL.rows.has(n.key) && PT.get(n.key) && !SEL.rows.size) selToggle(n, true);   // ticking placements picks the row
+  selDraw();
+}
+// highlight one placement in CAD (and every copy of it, if a parent is used several times)
+async function plShow(n, handle) {
+  const names = namesFor(n); if (!names) return;
+  const allow = allowFor(n.key); allow[names.length - 1] = [handle];
+  toast('Asking Plant 3D to highlight it…');
+  const r = await task('find', { drawing: T.source, rows: [names], allow: [allow], focus: 1 });
+  toast(r.status === 'OK' ? 'Highlighted in Plant 3D.' : (r.message || 'Plant 3D did not answer.'));
+}
+// ---------------------------------------------------------------- from a selection in CAD to the tree
+// open the tree along a key (f0/ms/A/B), select that row and, for a block used
+// more than once, mark the exact copy in its placements list
+function openPath(key) {
+  const parts = key.split('/');
+  let cur = '';
+  for (let i = 0; i < parts.length; i++) {
+    cur = i ? cur + '/' + parts[i] : parts[0];
+    const li = document.querySelector(`#tree li[data-key="${CSS.escape(cur)}"]`);
+    if (!li) return null;
+    if (i < parts.length - 1) toggle(li, true); else return li;
+  }
+  return null;
+}
+function revealKey(key, handle, quiet) {
+  if (FILTER) { $('q').value = ''; FILTER = null; rerender(); }
+  if (key.split('/').some(p => isAnon(p)) && !$('optAnon').checked) { $('optAnon').checked = true; rerender(); }
+  const li = openPath(key);
+  if (!li) { if (!quiet) toast('Not shown in the tree: ' + key.replace(/^f0\/ms\//, '').split('/').join(' › ')); return null; }
+  const n = kids.get(key);
+  document.querySelectorAll('#tree .node.cadsel').forEach(e => e.classList.remove('cadsel'));
+  const el = li.querySelector(':scope > .node');
+  el.classList.add('cadsel'); el.scrollIntoView({ block: 'center' });
+  select(n);
+  if (handle && n.data && n.data.r && n.data.r.count > 1) {
+    plOpen(n, li, true);
+    const inp = li.querySelector(`:scope > .plist input[data-h="${CSS.escape(handle)}"]`);
+    if (inp) { const tr = inp.closest('tr'); tr.classList.add('cadsel'); }
+    else if (!quiet) toast('That copy is not among the first ' + plOf(n).length + ' listed for this block; it is still the row shown.');
+  }
+  return n;
+}
+async function cadSel() {
+  if (!T) return;
+  $('results').innerHTML = '<div class="muted" style="cursor:default">Reading the selection in Plant 3D&hellip; <b>If nothing is selected there, click a block in Plant 3D now.</b></div>';
+  const r = await task('selected', { drawing: T.source });
+  if (r.status !== 'OK') { $('results').innerHTML = `<div class="muted" style="cursor:default">${esc(r.message || 'Plant 3D did not answer.')}</div>`; return; }
+  const items = (r.selected || []).map(ch => {
+    const cut = ch.findIndex(x => x.xref);
+    return { ch: cut >= 0 ? ch.slice(0, cut) : ch, xref: cut >= 0 ? ch[cut].name : null };
+  }).filter(it => it.ch.length);
+  if (!items.length) { $('results').innerHTML = `<div class="muted" style="cursor:default">${r.how === 'cancelled' ? 'Cancelled in Plant 3D.' : 'No block was selected (only blocks in model space count; xrefs are not in this tree).'}</div>`; return; }
+  const keyOf = (ch, upto) => 'f0/ms/' + ch.slice(0, upto).map(x => x.name).join('/');
+  window._cadSel = items;
+  if (r.how === 'click') {
+    // one click: every level it sits in, deepest shown first
+    const ch = items[0].ch;
+    $('results').innerHTML = `<div class="muted" style="cursor:default">You clicked inside ${ch.length} block level${ch.length > 1 ? 's' : ''}${items[0].xref ? ' (and then xref ' + esc(items[0].xref) + ')' : ''}. Click a level to show it:</div>` +
+      ch.map((x, i) => `<div onclick='revealKey(${JSON.stringify(keyOf(ch, i + 1))}, ${JSON.stringify(x.handle)})'>${'&nbsp;'.repeat(i * 3)}<b>${esc(x.name)}</b> <span class="crumb">at ${f3(x.x)}, ${f3(x.y)}</span></div>`).join('');
+    revealKey(keyOf(ch, ch.length), ch[ch.length - 1].handle);
+    return;
+  }
+  // a selection: top-level blocks
+  $('results').innerHTML = `<div class="muted" style="cursor:default"><b>${items.length}</b> block${items.length > 1 ? 's' : ''} selected in Plant 3D. Click one to show it.
+      ${items.length > 1 ? '<button class="btn sm" style="margin-left:6px" onclick="cadSelTick()">Tick All for One WBLOCK</button>' : ''}</div>` +
+    items.slice(0, 200).map(it => `<div onclick='revealKey(${JSON.stringify(keyOf(it.ch, 1))}, ${JSON.stringify(it.ch[0].handle)})'><b>${esc(it.ch[0].name)}</b> <span class="crumb">at ${f3(it.ch[0].x)}, ${f3(it.ch[0].y)}</span></div>`).join('');
+  revealKey(keyOf(items[0].ch, 1), items[0].ch[0].handle);
+}
+// tick the selected blocks, narrowed to exactly the copies selected in CAD
+function cadSelTick() {
+  const items = window._cadSel || [];
+  const byKey = new Map();
+  for (const it of items) { const k = 'f0/ms/' + it.ch[0].name; if (!byKey.has(k)) byKey.set(k, new Set()); byKey.get(k).add(it.ch[0].handle); }
+  selClear();
+  let missing = 0;
+  for (const [k, hs] of byKey) {
+    const n = revealKey(k, null, true); if (!n) { missing++; continue; }
+    if (hs.size < (n.data.r.count || 1)) PT.set(k, hs); else PT.delete(k);
+    selToggle(n, true);
+  }
+  rerender(); selDraw();
+  toast(missing ? missing + ' of them are not shown in the tree.' : 'Ticked ' + byKey.size + ' block' + (byKey.size > 1 ? 's' : '') + ', narrowed to the copies you selected.');
+}
+
+// ---------------------------------------------------------------- standard layers
+// From "PEC Standard CAD Layers at Block Level.xlsx" (next to run.bat). Objects are
+// sorted onto a layer by their color; you choose which layers to keep.
+let STD = null;
+const ACI_RGB = { 1: '#ff0000', 2: '#ffff00', 3: '#00ff00', 4: '#00ffff', 5: '#0000ff', 6: '#ff00ff', 7: '#ffffff', 8: '#808080', 9: '#c0c0c0',
+  12: '#bd0000', 14: '#810000', 50: '#ffff7f', 71: '#7fbd00', 120: '#00ff7f', 250: '#333333', 251: '#505050', 252: '#696969', 253: '#828282', 254: '#bebebe', 255: '#ffffff' };
+// AutoCAD color index -> approximate RGB (10-249: 24 hues x 5 shades, odd = pastel)
+function aciCss(n) {
+  if (ACI_RGB[n]) return ACI_RGB[n];
+  if (n >= 10 && n <= 249) {
+    const hue = (Math.floor(n / 10) - 1) * 15, d = n % 10, shade = [1, 1, .8, .8, .6, .6, .5, .5, .3, .3][d];
+    return `hsl(${hue} ${d % 2 ? 50 : 100}% ${Math.round((d % 2 ? 75 : 50) * shade)}%)`;
+  }
+  if (n >= 250 && n <= 255) return ['#333', '#505050', '#696969', '#828282', '#bebebe', '#fff'][n - 250];
+  return null;
+}
+const sw = aci => `<span style="display:inline-block;width:11px;height:11px;border-radius:3px;border:1px solid var(--line);vertical-align:-1px;background:${aciCss(aci) || 'repeating-linear-gradient(45deg,#ccc 0 3px,#fff 3px 6px)'}"></span>`;
+function stdKeep() { try { return JSON.parse(localStorage.getItem('stdKeep') || 'null'); } catch (e) { return null; } }
+async function stdLoad() {
+  try { STD = await (await fetch('/api/layer-standard')).json(); } catch (e) { STD = { layers: [], problems: ['Could not read the layer standard.'] }; }
+  const el = $('wbStd'); if (!el) return;
+  const keep = stdKeep();
+  const ls = STD.layers || [];
+  el.innerHTML = (ls.length ? `<div class="mute" style="font-size:12px;margin-bottom:4px">Which layers to keep? Objects whose color matches a ticked layer go on it. Everything else goes on layer 0 as ByLayer color, Continuous linetype, ByLayer lineweight.</div>
+      <table class="list" style="font-size:12.5px"><tr><th></th><th>Layer</th><th>Color</th><th>Plot</th><th>Linetype</th></tr>` +
+      ls.map(l => `<tr><td><input type="checkbox" class="stdk" value="${esc(l.name)}"${!l.aci ? ' disabled' : (!keep || keep.includes(l.name)) ? ' checked' : ''} onchange="stdSave()"></td>
+        <td><b>${esc(l.name)}</b></td><td>${l.aci ? sw(l.aci) + ' ' + esc(l.color) : '<span class="err" style="padding:0 4px">?</span>'}</td><td>${l.plot ? 'yes' : '<b>no</b>'}</td><td>${esc(l.linetype)}</td></tr>`).join('') + '</table>' : '') +
+    (STD.problems || []).map(p => `<div class="mute" style="color:var(--amber)">${esc(p)}</div>`).join('') +
+    `<div class="mute" style="font-size:11.5px;margin-top:3px">From <span class="path">${esc((STD.file || '').replace(/^.*[\\\/]/, ''))}</span>. Edit that file to change the standard.</div>`;
+}
+function stdSave() { try { localStorage.setItem('stdKeep', JSON.stringify(stdChosen())); } catch (e) {} }
+function stdChosen() { const b = [...document.querySelectorAll('.stdk')]; return b.length ? b.filter(c => c.checked).map(c => c.value) : null; }
+function stdResult(r) {
+  const m = r.layerSort; if (!m) return '';
+  const other = r.layerSortOther || {}, on = Object.entries(m), oth = Object.entries(other);
+  const total = on.reduce((a, [, n]) => a + n, 0) + oth.reduce((a, [, n]) => a + n, 0);
+  return `<div class="hint" style="margin-top:8px"><b>Sorted onto the standard layers</b> (${fmt(total)} objects):
+    <table class="coord" style="margin-top:4px">${on.map(([k, n]) => `<tr><td>${esc(k)}</td><td>${fmt(n)}</td></tr>`).join('')}
+    ${oth.length ? `<tr><td colspan="2" class="mute" style="padding-top:6px">Other colors, put on layer 0 (ByLayer color, Continuous, ByLayer lineweight):</td></tr>` + oth.map(([k, n]) => `<tr><td>color ${esc(k)}</td><td>${fmt(n)}</td></tr>`).join('') : ''}</table>
+    ${(r.layerSortNotes || []).map(x => `<div class="mute">${esc(x)}</div>`).join('')}</div>`;
+}
+
+// per level of a row's path, the ticked handles ([] = every one)
+function allowFor(key) {
+  const names = key.slice(6).split('/');
+  const out = [];
+  for (let i = 1; i <= names.length; i++) { const t = PT.get('f0/ms/' + names.slice(0, i).join('/')); out.push(t ? [...t] : []); }
+  return out;
+}
+
+// ---------------------------------------------------------------- rendering
+const kids = new Map();   // key -> virtual node (rendered ones)
+function nodeEl(n) {
+  kids.set(n.key, n);
+  const li = document.createElement('li');
+  li.dataset.key = n.key;
+  const tags = (n.tags || []).filter(t => t[1]).map(([c, t]) => `<span class="tg ${c}">${t}</span>`).join('');
+  const can = !!namesFor(n), picked = SEL.rows.has(n.key);
+  if (n.key === 'f0' || n.key === 'f0/ms') li.className = 'hidrow';      // start straight at model space
+  li.innerHTML = `<div class="node k-${n.kind}${n.key === selKey ? ' sel' : ''}${picked ? ' picked' : ''}${WB && WB.keys && WB.keys.includes(n.key) ? ' wbon' : ''}"><span class="tw">${n.children ? '&#9656;' : ''}</span>` +
+    (can ? `<input type="checkbox" class="pick"${picked ? ' checked' : ''} title="Put this block in the WBLOCK">` : (n.data && n.data.type === 'block' ? '<span class="pick-sp"></span>' : '')) +
+    (n.icon ? `<span class="ic">${n.icon}</span>` : '') + `<span class="lbl${FILTER && n.data && (n.data.type === 'block' || n.data.type === 'xref') && FILTER.test(n.label) ? ' match' : ''}">${FILTER ? hl(n.label) : esc(n.label)}</span> ${can && plcChip(n) ? plcChip(n) : `<span class="cnt">${n.count || ''}</span>`}${tags}` +
+    (n.meta || '') + `</div>`;
+  li.firstChild.onclick = (ev) => {
+    if (ev.target.closest('.pick')) { ev.stopPropagation(); selToggle(n, ev.target.checked); return; }
+    if (ev.target.closest('.plc')) { ev.stopPropagation(); plOpen(n, li); return; }
+    if (ev.target.closest('.tw')) { toggle(li); select(n); return; }     // the arrow opens / closes
+    select(n);                                                          // the row just selects
+    $('tree').focus({ preventScroll: true });
+  };
+  li.firstChild.ondblclick = (ev) => { if (ev.target.closest('.pick, .plc, .tw')) return; toggle(li); };
+  if (can && PLOPEN.has(n.key)) setTimeout(() => plOpen(n, li, true), 0);
+  li.firstChild.oncontextmenu = (ev) => { ev.preventDefault(); select(n); ctxMenu(ev, n); };
+  return li;
+}
+function toggle(li, force) {
+  const n = kids.get(li.dataset.key);
+  if (!n || !n.children) return;
+  let ul = li.querySelector(':scope > ul');
+  const open = !!ul;
+  if (force === true && open) return;
+  if (open) { ul.remove(); li.querySelector('.tw').innerHTML = '&#9656;'; return; }
+  ul = document.createElement('ul');
+  const ch = n.children();
+  const LIMIT = 400;
+  ch.slice(0, LIMIT).forEach(c => ul.appendChild(nodeEl(c)));
+  if (ch.length > LIMIT) { const m = document.createElement('li'); m.innerHTML = `<div class="node k-geo"><span class="tw"></span><span class="lbl">${ch.length - LIMIT} more not shown; use search</span></div>`; ul.appendChild(m); }
+  li.appendChild(ul);
+  li.querySelector('.tw').innerHTML = '&#9662;';
+}
+function rootNode() { return fileNode(T.files[0], 'f0', null); }
+function rerender() {
+  if (FILTER) { applyFilter(FILTER); setTimeout(selAllState, 0); return; }
+  setTimeout(selAllState, 0);
+  const openKeys = [...document.querySelectorAll('#tree li')].filter(li => li.querySelector(':scope > ul')).map(li => li.dataset.key);
+  $('tree').innerHTML = '<ul></ul>';
+  kids.clear();
+  const li = nodeEl(rootNode());
+  $('tree').firstChild.appendChild(li);
+  toggle(li, true);
+  const msLi = document.querySelector('#tree li[data-key="f0/ms"]'); if (msLi) toggle(msLi, true);
+  for (const k of openKeys) { const el = document.querySelector(`#tree li[data-key="${CSS.escape(k)}"]`); if (el) toggle(el, true); }
+}
+function collapseAll() { if (FILTER) searchClear(); rerender(); document.querySelectorAll('#tree li > ul').forEach(u => { const k = u.parentElement.dataset.key; if (k !== 'f0' && k !== 'f0/ms') { u.parentElement.querySelector('.tw').innerHTML = '&#9656;'; u.remove(); } }); }
+function expandDepth(depth) {
+  const go = (li, d) => { if (d <= 0) return; toggle(li, true); li.querySelectorAll(':scope > ul > li').forEach(c => go(c, d - 1)); };
+  document.querySelectorAll('#tree > ul > li').forEach(li => go(li, depth + 2));
+}
+function detGuide() {
+  $('det').innerHTML = `<h2>How It Works</h2>
+    <ol class="guide">
+      <li><b>Find the block.</b> Search above (every word counts, punctuation doesn't), or select it in Plant 3D and press <b>Find My CAD Selection</b>.</li>
+      <li><b>Tick it.</b> Tick several at the same level to merge them into one file. For a block used more than once, <b>placements</b> lets you tick which copies; one ticked = that one sets the coordinates.</li>
+      <li><b>Make the WBLOCK.</b> The blue bar above the list opens the steps: light it up in CAD, check what goes in, choose the layers to keep, save.</li>
+      <li class="mute"><b>Next:</b> assemble the WBLOCKs into a master at 0,0 and repeat per unit.</li>
+    </ol>
+    <div class="mute" style="font-size:12px">Click any row to see what it is, where it sits and what is inside it.</div>`;
+}
+// keyboard: up/down move, right opens (or goes in), left closes (or goes up), space ticks, enter = Create WBLOCK
+document.addEventListener('keydown', e => {
+  if (document.activeElement !== $('tree') || !$('wfm').hidden) return;
+  const rows = [...document.querySelectorAll('#tree li')].filter(li => li.offsetParent !== null && !li.classList.contains('hidrow'));
+  if (!rows.length) return;
+  let i = rows.findIndex(li => li.dataset.key === selKey);
+  const go = j => { const li = rows[Math.max(0, Math.min(rows.length - 1, j))]; const n = kids.get(li.dataset.key); if (n) { select(n); li.firstChild.scrollIntoView({ block: 'nearest' }); } };
+  const cur = i >= 0 ? rows[i] : null, n = cur ? kids.get(cur.dataset.key) : null;
+  if (e.key === 'ArrowDown') { e.preventDefault(); go(i + 1); }
+  else if (e.key === 'ArrowUp') { e.preventDefault(); go(i < 0 ? 0 : i - 1); }
+  else if (e.key === 'ArrowRight' && cur) { e.preventDefault(); if (n && n.children && !cur.querySelector(':scope > ul')) toggle(cur, true); else go(i + 1); }
+  else if (e.key === 'ArrowLeft' && cur) {
+    e.preventDefault();
+    if (cur.querySelector(':scope > ul')) toggle(cur);
+    else { const up = rows.findIndex(li => li.dataset.key === parentKey(cur.dataset.key)); if (up >= 0) go(up); }
+  }
+  else if (e.key === ' ' && n && namesFor(n)) { e.preventDefault(); selToggle(n, !SEL.rows.has(n.key)); }
+  else if (e.key === 'Enter' && n && namesFor(n)) { e.preventDefault(); SEL.rows.size && SEL.rows.has(n.key) ? wbOpenSel() : wbOpen(n); }
+});
+function select(n) {
+  selKey = n.key;
+  document.querySelectorAll('#tree .node.sel').forEach(e => e.classList.remove('sel'));
+  const el = document.querySelector(`#tree li[data-key="${CSS.escape(n.key)}"] > .node`); if (el) el.classList.add('sel');
+  $('det').innerHTML = '<h2>Details</h2>' + details(n);
+}
+
+// ---------------------------------------------------------------- details pane
+const rowsT = rows => '<table>' + rows.filter(r => r[1] !== undefined && r[1] !== '' && r[1] !== null).map(([k, v]) => `<tr><th>${k}</th><td>${v}</td></tr>`).join('') + '</table>';
+function placementsT(pl, total) {
+  if (!pl || !pl.length) return '';
+  return `<h3 style="font-size:12.5px;margin:12px 0 4px">Where It Is Placed${total > pl.length ? ' (first ' + pl.length + ' of ' + fmt(total) + ')' : ''}</h3>
+    <table class="list"><tr><th>X</th><th>Y</th><th>Rot</th><th>Scale</th><th>0,0</th><th>Layer</th></tr>` +
+    pl.map(p => `<tr><td class="num">${fmt(p.x)}</td><td class="num">${fmt(p.y)}</td><td class="num">${p.rotationDeg}&deg;</td><td>${esc(p.scale)}</td><td>${atOrigin(p) ? '<span style="color:var(--green);font-weight:600">&#10003;</span>' : ''}</td><td>${esc(p.layer)}</td></tr>`).join('') + '</table>';
+}
+function geomT(g) {
+  const e = Object.entries(g || {}); if (!e.length) return '';
+  return '<h3 style="font-size:12.5px;margin:12px 0 4px">Geometry Inside</h3><table class="list">' + e.map(([k, n]) => `<tr><td>${esc(k)}</td><td class="num">${fmt(n)}</td></tr>`).join('') + '</table>';
+}
+function details(n) {
+  const d = n.data || {};
+  if (d.type === 'file') {
+    const f = d.f;
+    return rowsT([['File', `<b>${esc(f.name)}</b>`], ['Path', `<span class="path">${esc(f.path)}</span>`], ['Location', esc(f.location) + (f.outsideProject ? ' <span class="tg out">OUTSIDE PROJECT</span>' : '')],
+      ['Size', mb(f.sizeBytes)], ['Modified', esc(f.modified)], ['Found via', esc(f.foundVia)], ['Xref depth', f.depth],
+      ['Block definitions', fmt(f.definitionCount) + (f.anonymousDefinitions ? ' (' + fmt(f.anonymousDefinitions) + ' anonymous)' : '')],
+      ['Model space objects', fmt((f.modelSpace || {}).objects)], ['Units', esc(f.insunits)],
+      ['Original untouched', f.unchangedAfter === false ? '<span class="tg bad">changed on disk during read</span>' : 'yes (SHA-256 identical before and after)'],
+      ['SHA-256', `<span class="path" style="font-size:11px">${esc(f.sha256)}</span>`], ['Error', esc(f.error)]]);
+  }
+  if (d.type === 'xref') {
+    const x = d.x;
+    return rowsT([['Xref', `<b>${esc(x.name)}</b>`], ['Type', esc(x.type)], ['Status', esc(x.status)], ['Instances', fmt(x.instances)],
+      ['Saved path', `<span class="path">${esc(x.storedPath)}</span>`], ['Path type', esc(x.pathType)],
+      ['Resolves to', `<span class="path">${esc(x.resolvedPath || 'not found where the drawing says')}</span>`],
+      ['Owner location', d.child ? esc(d.child.location) + (d.child.outsideProject ? ' <span class="tg out">OUTSIDE PROJECT</span>' : '') : ''],
+      ['Attached in', esc(d.f.name)]]) + placementsT(x.placements, x.instances);
+  }
+  if (d.type === 'block') {
+    const r = d.r, def = d.d || {};
+    const nested = (def.content && def.content.references || []).filter(x => x.kind === 'block').length;
+    return wbButton(n) + '<h3 class="o-title">Where It Comes From</h3>' + originHtml(n) + '<h3 class="o-title">Properties</h3>' + rowsT([['Block', `<b>${esc(r.block)}</b>`], ['Instances here', fmt(r.count)], ['Dynamic', r.dynamic ? 'yes' + (r.anonymousDefinitions.length ? ' (' + r.anonymousDefinitions.length + ' variant definitions)' : '') : ''],
+      ['Source file', srcCell(r.block)], ['Used in', usedInCell(d.f, r.block)], ['Nested block types inside', nested], ['Nested block instances inside (all levels)', fmt(nestedOf(d.f, r.block))], ['Nesting depth below', d.d ? depthOf(d.f, r.block) : ''],
+      ['Entities per instance', d.d ? fmt(expanded(d.f, r.block)) : ''],
+      ['Layers used', esc((r.layers || []).join(', '))], ['Non-uniform scale', r.nonUniform ? fmt(r.nonUniform) : ''], ['Mirrored', r.mirrored ? fmt(r.mirrored) : ''],
+      ['XCLIP', r.clipped ? fmt(r.clipped) + ' clipped' : ''], ['Hidden (invisible)', r.invisible ? fmt(r.invisible) : ''],
+      ['From a bound xref', def.fromBoundXref ? 'yes (name carries the $0$ bind prefix)' : ''],
+      ['Plant / custom objects', def.content && (def.content.customObjects || def.content.proxies) ? fmt(def.content.customObjects) + ' custom, ' + fmt(def.content.proxies) + ' proxies' : ''],
+      ['Description', esc(def.description)], ['Defined in', esc(d.f.name)]]) + placementsT(r.placements, r.count) + geomT(def.content && def.content.geometry);
+  }
+  if (d.type === 'def') return '<h3 class="o-title">Where It Comes From</h3>' + originHtml(n) + rowsT([['Block', `<b>${esc(d.d.name)}</b>`], ['Used', 'not inserted anywhere in this file'], ['Defined in', esc(d.f.name)]]) + geomT(d.d.content.geometry);
+  if (d.type === 'space') return rowsT([['Space', esc(d.name)], ['Objects', fmt(d.c.objects)], ['Distinct blocks/xrefs', (d.c.references || []).length], ['File', esc(d.f.name)]]) + geomT(d.c.geometry);
+  if (d.type === 'geo') return geomT(d.geometry);
+  if (d.type === 'unused') return `<p>${d.list.length} block definitions exist in ${esc(d.f.name)} but are not inserted anywhere. They are candidates for PURGE during cleanup.</p>`;
+  if (d.type === 'xreflist') return `<p>Xrefs attached directly to ${esc(d.f.name)}. Expand one to see that file's own contents and what it attaches.</p>`;
+  return '';
+}
+
+// ---------------------------------------------------------------- search (walks the virtual tree, not the DOM)
+let searchTimer = null;
+function findPaths(match) {
+  const hits = [], seen = new Set();
+  let budget = 30000;   // nodes visited; shared definitions can repeat along many paths
+  const walk = (n, path, depth) => {
+    if (hits.length >= 200 || depth > 14 || --budget < 0) return;
+    if (match(n) && !seen.has(n.key)) { seen.add(n.key); hits.push(path.concat(n)); }
+    if (n.children) for (const c of n.children()) walk(c, path.concat(n), depth + 1);
+  };
+  walk(rootNode(), [], 0);
+  return hits;
+}
+function showHits(hits, title) {
+  $('results').innerHTML = hits.length ? `<div class="muted" style="cursor:default">${title || ((hits.length >= 200 ? 'first 200' : hits.length) + ' match' + (hits.length > 1 ? 'es' : ''))}</div>` +
+    hits.map((p, i) => `<div onclick="reveal(${i})"><b>${esc(p[p.length - 1].label)}</b> <span class="crumb">${esc(p.slice(0, -1).map(x => x.label).join(' > '))}</span></div>`).join('')
+    : '<div class="muted" style="cursor:default">No matches.</div>';
+  window._hits = hits;
+}
+function search() {
+  clearTimeout(searchTimer);
+  searchTimer = setTimeout(() => {
+    const q = $('q').value.trim();
+    if (q.length < 2) { if (FILTER) { FILTER = null; $('results').innerHTML = ''; rerender(); } else $('results').innerHTML = ''; return; }
+    applyFilter(mkFilter(q, false));
+  }, 250);
+}
+let MATCH = { rows: [], i: 0 };
+function matchGo(d) {
+  const r = MATCH.rows; if (!r.length) return;
+  MATCH.i = d === 0 ? 0 : (MATCH.i + d + r.length) % r.length;
+  const el = r[MATCH.i], li = el.closest('li');
+  document.querySelectorAll('#tree .node.cur').forEach(e => e.classList.remove('cur'));
+  el.closest('.node').classList.add('cur'); el.scrollIntoView({ block: 'center' });
+  const n = kids.get(li.dataset.key); if (n && d !== 0) select(n);
+  const p = $('mPos'); if (p) p.textContent = MATCH.i + 1;
+}
+function searchClear() { $('q').value = ''; FILTER = null; $('results').innerHTML = ''; rerender(); }
+// filter, then open everything that leads to a match (not the matches' own insides)
+function applyFilter(flt) {
+  FILTER = flt;
+  $('tree').innerHTML = '<ul></ul>'; kids.clear();
+  const root = nodeEl(rootNode()); $('tree').firstChild.appendChild(root);
+  let shown = 0, budget = 4000;
+  const q = [root];
+  while (q.length && budget > 0) {
+    const li = q.shift(), n = kids.get(li.dataset.key);
+    if (!n || !n.children) continue;
+    const opens = n.data && n.data.type === 'block' ? hasMatchInside(n.data.f, n.data.r.block) : true;
+    if (!opens) continue;
+    toggle(li, true);
+    li.querySelectorAll(':scope > ul > li').forEach(c => { budget--; q.push(c); });
+  }
+  const rows = [...document.querySelectorAll('#tree .lbl.match')];
+  shown = rows.length;
+  MATCH = { rows, i: 0 };
+  const names = new Set(); for (const f of T.files) for (const d of Object.values(f._defs)) if (flt.test(d.name)) names.add(d.name);
+  $('results').innerHTML = shown
+    ? `<div class="srch" style="cursor:default"><span class="nav"><button class="btn sm ghost" onclick="matchGo(-1)" title="Previous (Shift+Enter)">&#8593;</button><b id="mPos">1</b> of <b>${fmt(shown)}</b><button class="btn sm ghost" onclick="matchGo(1)" title="Next (Enter)">&#8595;</button></span>
+        <span class="muted">match <b>${esc(flt.q)}</b>${names.size > 1 ? ' &middot; ' + fmt(names.size) + ' block names' : ''} &middot; the tree shows only the way to them</span>
+        <a href="#" onclick="searchClear();return false" style="text-decoration:underline;margin-left:auto">Show All</a></div>`
+    : `<div class="muted" style="cursor:default">Nothing in model space is called <b>${esc(flt.q)}</b>${names.size ? ' (' + fmt(names.size) + ' definition' + (names.size > 1 ? 's' : '') + ' match, but ' + (names.size > 1 ? 'they are' : 'it is') + ' not placed anywhere in model space)' : ''}. <a href="#" onclick="searchClear();return false" style="text-decoration:underline">Show All</a></div>`;
+  if (rows[0]) matchGo(0);
+  return rows;
+}
+// from the All blocks table: show every place a block is used, and open the first one
+function goToBlock(name, wb) {
+  tab(document.querySelector('.tabs button[data-t="tree"]'));
+  $('q').value = name;
+  const rows = applyFilter(mkFilter(name, true));
+  if (!rows.length) { toast(name + ' is not placed anywhere in model space.'); return; }
+  const li = rows[0].closest('li'), n = kids.get(li.dataset.key);
+  select(n); rows[0].closest('.node').classList.add('hit'); setTimeout(() => rows[0].closest('.node').classList.remove('hit'), 2500);
+  if (wb) setTimeout(() => wbOpen(n), 50);
+}
+function reveal(i) {
+  const path = window._hits[i];
+  for (const n of path.slice(0, -1)) { const li = document.querySelector(`#tree li[data-key="${CSS.escape(n.key)}"]`); if (li) toggle(li, true); }
+  const target = path[path.length - 1];
+  const el = document.querySelector(`#tree li[data-key="${CSS.escape(target.key)}"] > .node`);
+  if (el) { el.scrollIntoView({ block: 'center' }); el.classList.add('hit'); setTimeout(() => el.classList.remove('hit'), 2500); }
+  select(target);
+}
+
+// ---------------------------------------------------------------- summary + other tabs
+function renderAll() {
+  $('result').style.display = '';
+  const f0 = T.files[0];
+  setTopbar(f0);
+  const outside = T.files.filter(f => f.outsideProject);
+  const missing = T.files.reduce((a, f) => a + (f.xrefs || []).filter(x => x.status.startsWith('not found')).length, 0);
+  let maxNest = 0, inst = 0;
+  for (const f of T.files) for (const r of (f.modelSpace || {}).references || []) { if (r.kind === 'block') { maxNest = Math.max(maxNest, 1 + depthOf(f, r.block)); } }
+  for (const r of (f0.modelSpace || {}).references || []) if (r.kind === 'block') inst += r.count * Math.max(1, expanded(f0, r.block));
+  const xdepth = Math.max(...T.files.map(f => f.depth || 0));
+  const k = (v, label, cls, tip) => `<div class="kpi ${cls || ''}" title="${esc(tip || '')}"><div class="v">${v}</div><div class="k">${label}</div></div>`;
+  const ms0 = ((f0.modelSpace || {}).references || []).filter(r => r.kind === 'block');
+  const placed = ms0.reduce((a, r) => a + r.count, 0);
+  const at0 = ms0.filter(r => (r.placements || []).length && (r.placements || []).filter(atOrigin).length === r.count).length;
+  $('kpis').innerHTML =
+    k(fmt(placed), 'blocks placed in model space', '', ms0.length + ' different blocks') +
+    k(at0 + ' of ' + ms0.length, 'different blocks are at 0,0', at0 ? 'ok' : '', 'Blocks in model space inserted at 0,0 (rotation 0, scale 1): they already carry their own offset') +
+    k(maxNest, 'nesting levels', maxNest > 4 ? 'warn' : '', 'Deepest block-inside-block chain in model space') +
+    k(fmt(inst), 'entities if exploded', inst > 1e6 ? 'warn' : '', 'Approximate; xref contents not included') +
+    (T.files.length > 1 ? k(fmt(T.files.length), 'files incl. xrefs', '', 'The drawing plus every xref it pulls in') : '') +
+    (outside.length ? k(fmt(outside.length), 'files outside the project', 'warn', T.projectRoot) : '') +
+    (missing ? k(fmt(missing), 'xrefs not found', 'bad', 'Not at the path saved in the drawing') : '') +
+    (T.originalsChanged ? k(T.originalsChanged, 'originals changed while reading', 'bad', '') : '');
+  rerender(); sortHeads(); selAllState(); if (!selKey) detGuide();
+  filesTab(); outsideTab(); blocksTab(); bsInit();
+}
+function filesTab() {
+  $('t-files').innerHTML = `<table class="list"><tr><th>File</th><th>Location</th><th>Xref Depth</th><th class="num">Size</th><th>Found Via</th><th>Status</th></tr>` +
+    T.files.map(f => `<tr class="click" onclick="focusFile(${f.id})"><td><b>${esc(f.name)}</b><div class="crumb path">${esc(f.path)}</div></td>
+      <td>${esc(f.location)} ${f.outsideProject ? '<span class="tg out">OUTSIDE</span>' : ''}</td><td class="num">${f.depth}</td><td class="num">${mb(f.sizeBytes)}</td>
+      <td class="crumb">${esc(f.foundVia)}</td><td>${f.status === 'error' ? '<span class="tg bad">unreadable</span>' : (f.unchangedAfter === false ? '<span class="tg bad">changed during read</span>' : 'ok')}</td></tr>`).join('') + '</table>' +
+    missingList();
+}
+function missingList() {
+  const rows = [];
+  for (const f of T.files) for (const x of f.xrefs || []) if (x.status !== 'found') rows.push(`<tr><td>${esc(x.name)}</td><td>${esc(x.status)}</td><td class="path">${esc(x.storedPath)}</td><td>${esc(f.name)}</td></tr>`);
+  return rows.length ? `<h3 style="font-size:13px;margin:16px 0 6px">Xrefs Not Resolved / Not in Use</h3><table class="list"><tr><th>Xref</th><th>Status</th><th>Saved Path</th><th>In File</th></tr>${rows.join('')}</table>` : '';
+}
+function outsideTab() {
+  const groups = {};
+  for (const f of T.files.filter(f => f.outsideProject)) (groups[f.location] = groups[f.location] || []).push(f);
+  const bound = [];
+  for (const f of T.files) for (const d of Object.values(f._defs)) if (d.fromBoundXref) bound.push([f, d]);
+  $('t-outside').innerHTML = `<p class="muted">Project folder: <span class="path">${esc(T.projectRoot || '(not set)')}</span>. These are the dependencies the cleanup step would bring into the project.</p>` +
+    (Object.keys(groups).length ? Object.entries(groups).map(([loc, fs]) => `<h3 style="font-size:13px;margin:14px 0 6px">${esc(loc)} <span class="muted">(${fs.length} file${fs.length > 1 ? 's' : ''})</span></h3>
+      <table class="list"><tr><th>File</th><th>Pulled In Via</th><th class="num">Size</th></tr>${fs.map(f => `<tr class="click" onclick="focusFile(${f.id})"><td><b>${esc(f.name)}</b><div class="crumb path">${esc(f.path)}</div></td><td class="crumb">${esc(f.foundVia)}</td><td class="num">${mb(f.sizeBytes)}</td></tr>`).join('')}</table>`).join('')
+      : '<p><b>No xref files outside the project folder.</b></p>') +
+    (bound.length ? `<h3 style="font-size:13px;margin:16px 0 6px">Blocks From Bound Xrefs (${bound.length})</h3><p class="muted">Their names carry the $0$ bind prefix, so they were once xrefs, possibly from another project.</p><table class="list"><tr><th>Block</th><th>In File</th><th class="num">Used</th></tr>${bound.slice(0, 300).map(([f, d]) => `<tr><td>${esc(d.name)}</td><td>${esc(f.name)}</td><td class="num">${fmt(d.referencedBy)}</td></tr>`).join('')}</table>` : '');
+}
+// All blocks: filter, sort by any column, click a row to go to it in the tree
+let BT = { q: '', col: null, dir: -1, hideAnon: true, hidePasted: false, onlyTop: false, onlyUsed: true };
+const BT_COLS = [
+  ['name', 'Block', false], ['used', 'Placed', true], ['pos', 'At 0,0', true], ['nested', 'Nested', true], ['depth', 'Depth', true],
+  ['entities', 'Entities', true], ['where', 'Where', false]];
+function btRows() {
+  const rows = [];
+  for (const f of T.files) for (const d of Object.values(f._defs)) {
+    if (d.xrefDependent) continue;
+    const places = parentsOf(f, d.name);
+    const top = places.filter(([w]) => w === 'Model space').reduce((a, [, n]) => a + n, 0);
+    rows.push({ f, d, name: d.name, used: d.referencedBy || 0, nested: nestedOf(f, d.name), depth: depthOf(f, d.name),
+      types: (d.content.references || []).filter(r => r.kind === 'block' && !isAnon(r.block)).length,
+      entities: expanded(f, d.name), top, inside: places.filter(([w]) => w !== 'Model space').length,
+      pos: (() => { const ms = ((f.modelSpace || {}).references || []).find(x => x.block === d.name && x.kind === 'block'); if (!ms) return -1; const pl = ms.placements || [], o = pl.filter(atOrigin).length; return o && o === ms.count ? 2 : o ? 1 : 0; })(),
+      where: top ? 'Model space' + (places.length > 1 ? ' + ' + (places.length - 1) + ' more' : '') : places.length ? 'inside ' + places.length + ' block' + (places.length > 1 ? 's' : '') : 'not used' });
+  }
+  return rows;
+}
+function blocksTab() {
+  if (!$('btQ')) {
+    $('t-blocks').innerHTML = `
+      <div class="toolbar">
+        <input type="text" id="btQ" placeholder="Filter by name&hellip;" oninput="BT.q = this.value; btDraw()">
+        <label><input type="checkbox" id="btTop" onchange="BT.onlyTop = this.checked; btDraw()"> only in model space</label>
+        <label><input type="checkbox" id="btUsed" checked onchange="BT.onlyUsed = this.checked; btDraw()"> only used</label>
+        <label><input type="checkbox" id="btPasted" onchange="BT.hidePasted = this.checked; btDraw()"> hide pasted (A$C&hellip;)</label>
+        <label><input type="checkbox" id="btAnon" checked onchange="BT.hideAnon = this.checked; btDraw()"> hide anonymous (*U&hellip;)</label>
+      </div>
+      <p class="muted" id="btInfo" style="margin:0 0 6px"></p>
+      <div style="overflow-x:auto;max-width:100%"><table class="list" id="btTable" style="table-layout:auto;width:100%"></table></div>`;
+  }
+  BT.rows = btRows();
+  btDraw();
+}
+function btSort(c) {
+  if (BT.col === c) BT.dir = -BT.dir; else { BT.col = c; BT.dir = (c === 'name' || c === 'where') ? 1 : -1; }
+  btDraw();
+}
+function btDraw() {
+  if (!BT.rows) return;
+  const q = BT.q.trim().toLowerCase();
+  const col = BT.col || ({ nested: 'nested', depth: 'depth', count: 'used', entities: 'entities', name: 'name', file: 'used', pos: 'pos' }[sortMode()] || 'nested');
+  const dir = BT.col ? BT.dir : (col === 'name' ? 1 : -1);
+  let rows = BT.rows.filter(r => (!q || r.name.toLowerCase().includes(q)) && (!BT.hideAnon || !isAnon(r.name))
+    && (!BT.hidePasted || !/^A\$C[0-9a-f]{8}$/i.test(r.name)) && (!BT.onlyTop || r.top > 0) && (!BT.onlyUsed || r.used > 0));
+  const num = !(col === 'name' || col === 'where');
+  rows.sort((a, b) => (num ? (a[col] - b[col]) : String(a[col]).localeCompare(String(b[col]), undefined, { numeric: true, sensitivity: 'base' })) * dir
+    || a.name.localeCompare(b.name, undefined, { numeric: true }));
+  const multi = T.files.length > 1;
+  $('btInfo').innerHTML = `<b>${fmt(rows.length)}</b> of ${fmt(BT.rows.length)} block definitions. Click a column to sort, click a row to go to it in the tree.`;
+  const arrow = c => c === col ? (dir > 0 ? ' &#9650;' : ' &#9660;') : '';
+  $('btTable').innerHTML = '<tr>' + BT_COLS.map(([c, l, n]) => `<th class="${n ? 'num' : ''}" style="cursor:pointer;white-space:nowrap" onclick="btSort('${c}')" title="Sort by ${esc(l)}">${l}${arrow(c)}</th>`).join('') +
+    (multi ? '<th>File</th>' : '') + '<th></th></tr>' +
+    rows.slice(0, 1500).map(r => {
+      const nm = esc(JSON.stringify(r.name));
+      return `<tr class="click" onclick="goToBlock(${nm})" title="Go to ${esc(r.name)} in the tree">
+      <td style="word-break:break-word"><b style="font-weight:500">${esc(r.name)}</b></td><td class="num">${fmt(r.used)}</td>
+      <td class="num" style="white-space:nowrap">${r.pos === 2 ? '<span style="color:var(--green);font-weight:600">&#10003; 0,0</span>' : r.pos === 1 ? '<span style="color:var(--amber);font-weight:600">some</span>' : r.pos === 0 ? '<span class="mute">no</span>' : ''}</td>
+      <td class="num">${fmt(r.nested)}</td><td class="num">${r.depth}</td><td class="num">${fmt(r.entities)}</td>
+      <td class="mute" style="font-size:12.5px">${esc(r.where)}${[r.d.dynamic ? 'dynamic' : '', r.d.fromBoundXref ? 'bound xref' : '', r.f.outsideProject ? 'outside project' : ''].filter(Boolean).map(x => '<br><span style="font-size:11.5px">' + x + '</span>').join('')}</td>
+      ${multi ? `<td class="mute">${esc(r.f.name)}</td>` : ''}
+      <td style="width:1%;white-space:nowrap">${r.used && r.f === T.files[0] ? `<button class="btn sm ghost" style="padding:2px 8px" onclick="event.stopPropagation(); goToBlock(${nm}, true)" title="Go to it and start the WBLOCK steps">WBLOCK</button>` : ''}</td></tr>`;
+    }).join('') + (rows.length > 1500 ? `<tr><td colspan="9" class="mute">${fmt(rows.length - 1500)} more; narrow the filter.</td></tr>` : '');
+}
+function focusFile(id) {
+  tab(document.querySelector('.tabs button[data-t="tree"]'));
+  $('q').value = fileById(id).name; search();
+}
+function tab(btn) {
+  document.querySelectorAll('.tabs button').forEach(b => b.classList.toggle('on', b === btn));
+  for (const t of ['tree', 'files', 'outside', 'blocks', 'sources']) $('t-' + t).style.display = (btn.dataset.t === t || (btn.dataset.t === 'files' && t === 'outside')) ? '' : 'none';
+}
+function copyFiles() {
+  const lines = ['path\tlocation\toutside_project\txref_depth\tsize_bytes\tfound_via'].concat(T.files.map(f => [f.path, f.location, f.outsideProject ? 'yes' : 'no', f.depth, f.sizeBytes || '', f.foundVia].join('\t')));
+  navigator.clipboard.writeText(lines.join('\n')).then(() => toast('Copied ' + T.files.length + ' files (paste into Excel).'));
+}
+
+
+// ---------------------------------------------------------------- block source files
+let SRC = null, bsSid = null, bsFilter = '';
+const SRC_LABEL = { model: 'next to the model', project: 'in this project', other: 'in another project', notfound: 'no file found', generated: 'made inside a drawing' };
+function srcKey() { return 'bsrc:' + (T && T.source); }
+function bsBlocks() {
+  const uses = {};
+  for (const f of T.files) for (const d of Object.values(f._defs)) {
+    if (d.anonymous || d.xrefDependent) continue;
+    uses[d.name] = (uses[d.name] || 0) + (d.referencedBy || 0);
+  }
+  return Object.entries(uses).map(([name, n]) => ({ name, uses: n }));
+}
+function srcTag(sr) {
+  const c = sr.candidates[0];
+  let t = SRC_LABEL[sr.category];
+  if (sr.category === 'other' && c) t = 'file in ' + c.projectFolder.replace(/^.*[\\\/]/, '');
+  return ['src-' + sr.category, t];
+}
+function srcCell(name) {
+  const sr = SRC && SRC.byName[name];
+  if (!sr) return '<span class="muted">run "Find source files" (Block source files tab)</span>';
+  const c = sr.candidates[0];
+  const [cls, t] = srcTag(sr);
+  return `<span class="tg ${cls}">${esc(t)}</span>` + (c ? `<br><span class="path">${esc(c.path)}</span>` : '') + (sr.note ? `<br><span class="muted">${esc(sr.note)}</span>` : '') +
+    (sr.candidates.length > 1 ? `<br><span class="muted">${sr.candidates.length - 1} other file${sr.candidates.length > 2 ? 's' : ''} with this name</span>` : '');
+}
+// every place a block definition is used: model space / layouts / inside other blocks
+function parentsOf(f, name) {
+  f._par = f._par || (() => {
+    const m = {};
+    const add = (c, where) => { for (const r of (c && c.references) || []) if (r.kind === 'block') (m[r.block] = m[r.block] || []).push([where, r.count]); };
+    add(f.modelSpace, 'Model space');
+    for (const l of f.layouts || []) add(l.content, 'Layout ' + l.name);
+    for (const d of Object.values(f._defs)) add(d.content, d.name);
+    return m;
+  })();
+  return f._par[name] || [];
+}
+function usedInCell(f, name) {
+  const p = parentsOf(f, name);
+  if (!p.length) return 'nowhere';
+  const named = p.filter(([w]) => !isAnon(w));
+  const anon = p.length - named.length;
+  return (p.length > 1 ? `<b>${p.length} places</b> (one definition: changing it changes all of them)<br>` : '') +
+    named.slice(0, 12).map(([w, n]) => esc(w) + ' &times;' + fmt(n)).join('<br>') + (named.length > 12 ? '<br>...' : '') +
+    (anon ? `<br><span class="muted">+ ${fmt(anon)} anonymous/dynamic block variant${anon > 1 ? 's' : ''}</span>` : '');
+}
+async function bsInit() {
+  SRC = null; bsFilter = '';
+  try { const s0 = localStorage.getItem(srcKey()); if (s0) { SRC = JSON.parse(s0); SRC.byName = Object.fromEntries(SRC.rows.map(r => [r.name, r])); } } catch (e) { SRC = null; }
+  $('bsOut').innerHTML = ''; $('bsProg').textContent = '';
+  const r = await fetch('/api/block-sources/suggest', { method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ master: T.source, projectRoot: T.projectRoot, blocks: bsBlocks() }) });
+  const j = await r.json();
+  const prev = SRC ? SRC.folders : null;
+  const list = (j.folders || []).map(x => ({ ...x, checked: prev ? prev.includes(x.path) : x.checked }));
+  for (const p of prev || []) if (!list.some(x => x.path === p)) list.push({ path: p, why: 'added', checked: true });
+  $('bsFolders').innerHTML = list.map(x => `<label><input type="checkbox" class="bsF" value="${esc(x.path)}" ${x.checked ? 'checked' : ''}> ${esc(x.path)} <span class="muted">(${esc(x.why)})</span></label>`).join('') ||
+    '<p class="muted">No folders suggested. Add one below.</p>';
+  if (SRC) { bsRender(); rerender(); }
+}
+function bsAddFolder() {
+  const v = $('bsAdd').value.trim().replace(/^"|"$/g, ''); if (!v) return;
+  $('bsFolders').insertAdjacentHTML('beforeend', `<label><input type="checkbox" class="bsF" value="${esc(v)}" checked> ${esc(v)} <span class="muted">(added)</span></label>`);
+  $('bsAdd').value = '';
+}
+async function bsScan(rescan) {
+  const folders = [...document.querySelectorAll('.bsF')].filter(c => c.checked).map(c => c.value);
+  if (!folders.length) { $('bsProg').textContent = 'Tick at least one folder.'; return; }
+  const r = await fetch('/api/block-sources/scan', { method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ master: T.source, projectRoot: T.projectRoot, blocks: bsBlocks(), folders, rescan }) });
+  const j = await r.json();
+  if (j.error) { $('bsProg').textContent = j.error; return; }
+  bsSid = j.id; $('bsGo').disabled = true; bsPoll(folders);
+}
+async function bsPoll(folders) {
+  const st = await (await fetch('/api/block-sources/' + bsSid)).json();
+  if (st.state === 'running') {
+    $('bsProg').innerHTML = `Listing folders: ${fmt(st.dirs)} folders, ${fmt(st.dwg)} .dwg files so far&hellip; <span class="path">${esc(st.current)}</span> <button class="small" onclick="fetch('/api/block-sources/${bsSid}/cancel',{method:'POST'})">Stop</button>`;
+    return setTimeout(() => bsPoll(folders), 700);
+  }
+  $('bsGo').disabled = false;
+  if (st.state !== 'done') { $('bsProg').textContent = st.state === 'cancelled' ? 'Stopped.' : 'Failed: ' + st.error; return; }
+  $('bsProg').innerHTML = 'Searched ' + st.folderStats.map(f => `${esc(f.path)} (${fmt(f.dwg)} .dwg${f.cached ? ', listing from ' + f.scannedAt : ''}${f.errors ? ', ' + f.errors + ' unreadable folders' : ''})`).join('; ') + ` in ${st.elapsed}s.`;
+  SRC = { folders, rows: st.rows, at: new Date().toLocaleString() };
+  try { localStorage.setItem(srcKey(), JSON.stringify(SRC)); } catch (e) {}
+  SRC.byName = Object.fromEntries(st.rows.map(r => [r.name, r]));
+  bsRender(); rerender();
+}
+function bsRender() {
+  const rows = SRC.rows, cnt = {};
+  for (const r of rows) cnt[r.category] = (cnt[r.category] || 0) + 1;
+  const k = (cat, cls) => `<div class="kpi pick ${cls} ${bsFilter === cat ? 'on' : ''}" onclick="bsFilter = bsFilter === '${cat}' ? '' : '${cat}'; bsRender()"><div class="v">${fmt(cnt[cat] || 0)}</div><div class="k">${SRC_LABEL[cat]}</div></div>`;
+  const order = { other: 0, notfound: 1, project: 2, model: 3, generated: 4 };
+  const shown = rows.filter(r => !bsFilter || r.category === bsFilter).sort((a, b) => (order[a.category] - order[b.category]) || (b.uses - a.uses) || a.name.localeCompare(b.name));
+  $('bsOut').innerHTML = `<div class="kpis" style="margin:10px 0">${k('other', 'warn')}${k('notfound', 'bad')}${k('project', 'ok')}${k('model', 'ok')}${k('generated', '')}</div>
+    <div class="toolbar"><span class="muted">${shown.length} blocks${bsFilter ? ' (' + SRC_LABEL[bsFilter] + '; click the box again for all)' : ''}. Matched ${esc(SRC.at)}.</span>
+      <button class="small" onclick="bsCopy()">Copy Table</button></div>
+    <table class="list"><tr><th>Block</th><th class="num">Inserted</th><th>Where the File Is</th><th>File</th><th>Modified</th><th></th></tr>` +
+    shown.map((r, i) => {
+      const c = r.candidates[0]; const [cls, t] = srcTag(r);
+      const more = r.candidates.slice(1).map(x => `<div class="path muted">${esc(x.path)} <span class="muted">(${esc(x.modified)})</span></div>`).join('');
+      return `<tr class="click" onclick="bsFind('${esc(r.name).replace(/'/g, "\\'")}')"><td>${esc(r.name)}${r.note ? `<div class="muted">${esc(r.note)}</div>` : ''}</td><td class="num">${fmt(r.uses)}</td>
+        <td><span class="tg ${cls}">${esc(t)}</span></td>
+        <td>${c ? `<span class="path">${esc(c.path)}</span>` : ''}${more ? `<details onclick="event.stopPropagation()"><summary class="muted">${r.candidates.length - 1 + r.moreCandidates} more with this name</summary>${more}</details>` : ''}</td>
+        <td>${c ? esc(c.modified) : ''}</td>
+        <td>${c ? `<button class="small" onclick="event.stopPropagation(); openFolderOf('${esc(c.path).replace(/\\/g, '\\\\').replace(/'/g, "\\'")}')">Show</button>` : ''}</td></tr>`;
+    }).join('') + '</table>';
+}
+function bsFind(name) { tab(document.querySelector('.tabs button[data-t="tree"]')); $('q').value = name; search(); }
+function openFolderOf(path) { fetch('/api/open-folder', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ path }) }); }
+function bsCopy() {
+  const lines = ['block\tinserted\twhere\tfile\tmodified\tother_matches\tnote'].concat(SRC.rows.map(r => {
+    const c = r.candidates[0];
+    return [r.name, r.uses, srcTag(r)[1], c ? c.path : '', c ? c.modified : '', Math.max(0, r.candidates.length - 1 + r.moreCandidates), r.note].join('\t'); }));
+  navigator.clipboard.writeText(lines.join('\n')).then(() => toast('Copied ' + SRC.rows.length + ' blocks (paste into Excel).'));
+}
+
+
+
+// ================================================================ workflow state
+// One phase at a time. Everything you see at the top (the timeline, the
+// sentence, the pill) is drawn from it, so the page always says where you are.
+let S = { phase: 'choose', t0: Date.now(), msg: '' };
+let WB = null;            // the block being turned into a WBLOCK
+// the whole job, start to finish: the page shows all of it, the WBLOCK dialog shows from "Light up" on
+const FLOW = [['drawing', 'Drawing'], ['map', 'Map It'], ['block', 'Pick Blocks'], ['light', 'Light Up'],
+              ['check', 'Check & Name'], ['save', 'Save WBLOCK'], ['verify', 'Verify'], ['insert', 'Insert Back'], ['refresh', 'Refresh Tree']];
+const PH = {   // phase -> [current node, its state]
+  choose: [0, 'waiting'], mapping: [1, 'running'], mapfail: [1, 'failed'], tree: [2, 'waiting'],
+  finding: [3, 'running'], findfail: [3, 'failed'], choose1: [4, 'waiting'], picking: [4, 'waiting'],
+  save: [4, 'waiting'], making: [5, 'running'], makefail: [5, 'failed'],
+  saved: [7, 'waiting'], inserting: [7, 'running'], insfail: [7, 'failed'], inserted: [8, 'waiting'] };
+const PILL = { waiting: 'Needs you', running: 'Working', failed: 'Failed', done: 'Completed' };
+const CHECK = '<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M3.8 8.4l2.7 2.7 5.7-6"/></svg>';
+
+function logEvent(event, status, detail) {
+  try { navigator.sendBeacon('/api/log', new Blob([JSON.stringify({ event, status, detail, phase: S.phase })], { type: 'application/json' })); } catch (e) {}
+}
+window.addEventListener('error', e => logEvent('script-error', 'FAILED', (e.message || '') + ' @ ' + (e.filename || '').replace(/^.*\//, '') + ':' + (e.lineno || '')));
+window.addEventListener('unhandledrejection', e => logEvent('script-error', 'FAILED', String(e.reason && (e.reason.stack || e.reason.message) || e.reason)));
+function setPhase(p, msg) {
+  if (S.phase !== p && /fail$/.test(p)) logEvent(p, 'FAILED', (WB ? WB.block + ': ' : (S.name ? S.name + ': ' : '')) + (msg || ''));
+  if (S.phase !== p) S.t0 = Date.now();
+  S.phase = p; S.msg = msg || '';
+  drawFlow();
+  if (WB) wbDraw();
+}
+function flowStates() {
+  let [cur, st] = PH[S.phase];
+  if ((S.phase === 'making' || S.phase === 'makefail') && WB && WB.stage === 'check') cur = 6;   // reopening + coordinate check
+  return FLOW.map((_, i) => i < cur ? 'done' : i === cur ? st : 'pending');
+}
+// generic timeline: keeps per-node timing so finished steps show how long they took
+function drawTl(el, nodes, states) {
+  if (!el._built || el._n !== nodes.length) {
+    el.innerHTML = nodes.map(([k, l], i) => `<div class="tn pending" role="listitem" data-k="${k}"><div class="tn-line"><i></i></div>
+      <div class="tn-dot">${i + 1}${CHECK}<b></b></div><div class="tn-lbl">${esc(l)}</div><div class="tn-dur"></div></div>`).join('');
+    el._built = true; el._n = nodes.length; el._t = {};
+  }
+  const now = Date.now();
+  el.querySelectorAll('.tn').forEach((n, i) => {
+    const st = states[i], was = n.dataset.s || 'pending', k = nodes[i][0];
+    const t = el._t[k] = el._t[k] || {};
+    if ((st === 'running' || st === 'waiting') && !t.start) t.start = now;
+    if (st === 'pending') { delete t.start; delete t.dur; }
+    if ((st === 'done' || st === 'failed') && t.start && t.dur === undefined) t.dur = (now - t.start) / 1000;
+    if (was !== st) {
+      n.classList.remove('pending', 'running', 'waiting', 'done', 'failed', 'pop');
+      n.classList.add(st); n.dataset.s = st;
+      if ((st === 'done' || st === 'failed') && n.dataset.seen) { void n.offsetWidth; n.classList.add('pop'); }
+      n.setAttribute('aria-label', nodes[i][1] + ': ' + st);
+    }
+    n.dataset.seen = '1';
+    n.querySelector('.tn-dur').textContent = (t.dur !== undefined && t.dur >= 0.5 && st !== 'pending') ? fmtDur(t.dur) : '';
+  });
+}
+function fmtDur(d) { return d < 60 ? d.toFixed(d < 10 ? 1 : 0) + 's' : Math.floor(d / 60) + 'm ' + Math.round(d % 60) + 's'; }
+function fmtEl(sec) { sec = Math.max(0, Math.floor(sec)); const m = Math.floor(sec / 60), s = sec % 60; return m + ':' + (s < 10 ? '0' : '') + s; }
+
+function nowText() {
+  const b = WB ? `<b>${esc(WB.block)}</b>` : '';
+  const inc = WB ? WB.occ.filter(x => WB.inc.has(x.index)) : [];
+  const o = inc.length === 1 ? inc[0] : null;
+  switch (S.phase) {
+    case 'choose': return 'Paste or browse to the <b>copy</b> of the equipment drawing, then press the arrow to map it.';
+    case 'mapping': return `Mapping <b>${esc(S.name || '')}</b> &middot; ${esc(S.msg || 'starting')}`;
+    case 'mapfail': return `Mapping stopped: ${esc(S.msg)}`;
+    case 'tree': return '<b>Tick</b> the blocks you want in one WBLOCK (same level), or <b>right-click</b> one block for just that one.';
+    case 'finding': return `Lighting up every ${b} in Plant 3D&hellip; ${S.msg ? '<span class="mute">' + esc(S.msg) + '</span>' : ''}`;
+    case 'findfail': return `Couldn't light up ${b}: ${esc(S.msg)}`;
+    case 'choose1': return `<b>${WB.occ.length}</b> &times; ${b} are lit up in CAD. Pick the one that sets the coordinates: click a row on the right, or click it in CAD.`;
+    case 'picking': return `Go to AutoCAD and <b>click the ${esc(WB.block)}</b> you want (one of the highlighted ones). Esc in AutoCAD cancels.`;
+    case 'save': return (o ? `Using #${o.index} at ${fmt(o.x)}, ${fmt(o.y)}.` : `<b>${inc.length}</b> placement${inc.length === 1 ? '' : 's'} ticked go into one WBLOCK.`) + ' Choose the folder and file name, then click <b>Create WBLOCK</b>.';
+    case 'making': return `Making <b>${esc(WB.fileName || '')}</b> &middot; ${esc(S.msg || 'starting')}`;
+    case 'makefail': return `Not saved: ${esc(S.msg)}`;
+    case 'saved': return `Saved and checked <b>${esc(WB.fileName || '')}</b>. Next: <b>insert it back</b> into the drawing (step 4 in the dialog).`;
+    case 'inserting': return `Inserting <b>${esc(WB.fileName || '')}</b> into the drawing in Plant 3D&hellip;`;
+    case 'insfail': return `Not inserted: ${esc(S.msg)}`;
+    case 'inserted': return `Inserted. Nothing was saved. <b>Refresh the tree</b> to see the drawing as it is now.`;
+  }
+  return '';
+}
+function drawFlow() {
+  const states = flowStates();
+  drawTl($('flowTl'), FLOW, states);
+  const [cur, st] = PH[S.phase];
+  $('nowStep').textContent = S.phase === 'saved' ? 'Done' : 'Step ' + (cur + 1) + ' of ' + FLOW.length;
+  $('nowTxt').innerHTML = nowText();
+  const p = $('nowPill');
+  p.className = 'pill ' + st;
+  p.querySelector('.txt').textContent = S.phase === 'picking' ? 'Waiting for you in CAD' : PILL[st];
+  tick();
+}
+function tick() {
+  const st = PH[S.phase][1];
+  $('nowEl').textContent = (st === 'running' || S.phase === 'picking') ? fmtEl((Date.now() - S.t0) / 1000) : '';
+}
+setInterval(tick, 1000);
+function toast(msg) { const t = $('toast'); t.textContent = msg; t.classList.add('on'); clearTimeout(t._h); t._h = setTimeout(() => t.classList.remove('on'), 2600); }
+const post = (url, body) => fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) }).then(r => r.json());
+
+// ================================================================ screens
+function show(which) {
+  $('hero').style.display = which === 'hero' ? '' : 'none';
+  $('building').style.display = which === 'building' ? '' : 'none';
+  $('result').style.display = which === 'result' ? '' : 'none';
+}
+function newDrawing() {
+  T = null; WB = null; jobId = null;
+  show('hero'); $('wfm').hidden = true; document.body.style.overflow = '';
+  $('tbTitle').textContent = 'New Drawing'; $('tbSub').textContent = 'Choose the copy of the equipment model you want to work on'; $('tbRight').innerHTML = '';
+  setPhase('choose'); loadSide();
+}
+function seg(btn) { for (const b of $('engine').children) b.classList.toggle('on', b === btn); }
+const engine = () => [...$('engine').children].find(b => b.classList.contains('on')).dataset.v;
+let rootT = null;
+function srcChanged() {
+  $('sendBtn').disabled = !$('src').value.trim();
+  clearTimeout(rootT); rootT = setTimeout(rootFor, 400);
+}
+async function rootFor() {
+  const p = $('src').value.trim().replace(/^"|"$/g, '');
+  if (!p) return;
+  const r = await (await fetch('/api/project-root?path=' + encodeURIComponent(p))).json();
+  if (r.projectRoot) $('root').value = r.projectRoot;
+}
+
+// ---------------------------------------------------------------- map (build the tree)
+async function build() {
+  if ($('bHow')) $('bHow').textContent = 'Each file is byte-copied first and AutoCAD reads only the copy. Every original is fingerprinted (SHA-256) before and after. A large drawing can take a few minutes.';
+  const src = $('src').value.trim().replace(/^"|"$/g, '');
+  if (!src) return;
+  const r = await fetch('/api/tree', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ source: src, projectRoot: $('root').value.trim(), engine: engine() }) });
+  const j = await r.json();
+  if (!r.ok) { S.name = src.replace(/^.*[\\\/]/, ''); setPhase('mapfail', j.error || 'Failed'); toast(j.error || 'Failed'); return; }
+  if (j.projectRoot) $('root').value = j.projectRoot;
+  jobId = j.id; S.name = src.replace(/^.*[\\\/]/, '');
+  startWatch();
+}
+function startWatch() {
+  show('building'); $('bErr').innerHTML = ''; $('bCancel').style.display = '';
+  $('tbTitle').textContent = S.name || 'Mapping'; $('tbSub').textContent = 'Mapping the drawing'; $('tbRight').innerHTML = '';
+  setPhase('mapping', 'starting');
+  watch();
+}
+async function watch() {
+  clearTimeout(poll);
+  const j = await (await fetch('/api/jobs/' + jobId)).json();
+  $('bTitle').textContent = j.label || 'Mapping';
+  $('bSub').textContent = j.state === 'queued' ? (j.queuePosition ? 'Waiting for the job ahead of it (' + j.queuePosition + ' in queue)' : 'Queued') : '';
+  if (j.state === 'queued' || j.state === 'running') {
+    const p = j.progress || {};
+    const msg = [p.stage, p.message].filter(Boolean).join(': ');
+    $('bNow').innerHTML = `<b>${esc(p.stage || (j.state === 'queued' ? 'Queued' : 'Starting'))}</b> <span class="muted">${esc(p.message || '')}</span>`;
+    S.msg = msg || 'starting'; $('nowTxt').innerHTML = nowText();
+    poll = setTimeout(watch, 1000);
+    return;
+  }
+  if (j.state === 'done') { load(jobId); return; }
+  $('bCancel').style.display = 'none';
+  const why = (j.steps || []).filter(s => !s[1]).map(s => s[0]).pop() || j.head || 'The job did not finish.';
+  setPhase('mapfail', why);
+  $('bErr').innerHTML = `<div class="err">${esc(why)}</div>` +
+    `<details class="log" open><summary>What Happened, Step by Step</summary><pre>${esc((j.steps || []).map(s => (s[1] ? '✓ ' : '✗ ') + s[0]).concat(j.log || []).join('\n'))}</pre></details>` +
+    `<div style="margin-top:10px;display:flex;gap:8px"><button class="btn primary sm" onclick="build()">Try Again</button><button class="btn sm" onclick="newDrawing()">Pick Another Drawing</button></div>`;
+}
+async function cancelBuild() { const r = await post('/api/jobs/' + jobId + '/cancel', {}); toast(r.msg || 'Asked to stop'); }
+
+async function load(id) {
+  const r = await fetch('/api/tree-data/' + id);
+  if (!r.ok) { toast('That tree file is no longer there. Map the drawing again.'); return; }
+  T = await r.json(); jobId = id; WB = null; $('wfm').hidden = true; document.body.style.overflow = '';
+  SEL.rows.clear(); SEL.parent = null; PT.clear(); PLOPEN.clear(); FILTER = null; selKey = null;
+  if ($('q')) $('q').value = ''; if ($('results')) $('results').innerHTML = ''; selDraw();
+  try { localStorage.setItem('lastTree', id); } catch (e) {}
+  prepare(); show('result'); renderAll();
+  $('src').value = T.source || '';
+  setPhase('tree'); loadSide();
+}
+function setTopbar(f0) {
+  $('tbTitle').textContent = f0.name;
+  $('tbSub').textContent = f0.path + '  ·  mapped ' + T.builtAt.replace('T', ' ');
+  $('tbRight').innerHTML = `<button class="btn sm ghost" onclick="copyFiles()">Copy File List</button>
+    <a href="/api/tree-data/${jobId}" download><button class="btn sm ghost">Download JSON</button></a>
+    <button class="btn sm" onclick="refreshLive()" title="Read the drawing again as it is open in Plant 3D right now, unsaved inserts included">Refresh from CAD</button>
+    <button class="btn sm ghost" onclick="remap()" title="Read the saved file on disk again">Map Again</button>`;
+}
+// map the drawing again as it is open in Plant 3D (to see what an insert did, before saving)
+async function refreshLive() {
+  if (!T) return;
+  WB = null; $('wfm').hidden = true; $('wb').innerHTML = ''; document.body.style.overflow = '';
+  const src = T.source;
+  const r = await fetch('/api/tree', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ source: src, projectRoot: T.projectRoot || '', live: true }) });
+  const j = await r.json();
+  if (!r.ok) { toast(j.error || 'Could not refresh'); return; }
+  jobId = j.id; S.name = src.replace(/^.*[\\\/]/, '');
+  startWatch();
+  $('bHow').textContent = 'Reading the drawing as it is open in Plant 3D right now, unsaved changes included. Nothing in it is changed.';
+}
+function remap() { $('src').value = T.source; S.name = T.files[0].name; build(); }
+
+// ---------------------------------------------------------------- sidebar
+async function loadSide() {
+  try {
+    const trees = await (await fetch('/api/trees')).json();
+    const seen = new Set(), uniq = [];
+    for (const t of trees) { const n = t.label.replace('Reference tree: ', ''); if (!seen.has(n)) { seen.add(n); uniq.push(t); } }
+    $('recent').innerHTML = uniq.slice(0, 6).map(t => `<button class="card-s" onclick="load('${t.id}')"><b>${esc(t.label.replace('Reference tree: ', ''))}</b><span>mapped ${esc(t.created)}</span></button>`).join('');
+  } catch (e) {}
+}
+
+// ================================================================ WBLOCK
+const atOrigin = p => Math.abs(p.x) < 1e-6 && Math.abs(p.y) < 1e-6 && Math.abs(p.z || 0) < 1e-6 && Math.abs(p.rotationDeg || 0) < 1e-9 && /^1(\.0*)?,1(\.0*)?,1(\.0*)?$/.test(String(p.scale || '1,1,1'));
+function namesFor(n) {
+  if (!n || !n.data || n.data.type !== 'block' || !n.key.startsWith('f0/ms/')) return null;
+  const parts = n.key.slice(6).split('/');
+  return parts.some(x => x.startsWith('x:') || x === 'ms') ? null : parts;
+}
+function ctxClose() { const m = document.querySelector('.ctx'); if (m) m.remove(); }
+document.addEventListener('click', ctxClose);
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape') ctxClose();
+  if (e.key === '/' && !/^(INPUT|TEXTAREA|SELECT)$/.test((document.activeElement || {}).tagName || '') && $('q') && $('result').style.display !== 'none') { e.preventDefault(); $('q').focus(); $('q').select(); }
+});
+function ctxMenu(ev, n) {
+  ctxClose();
+  if (!n.data || n.data.type !== 'block') return;
+  const names = namesFor(n);
+  const m = document.createElement('div'); m.className = 'ctx';
+  m.innerHTML = `<div class="hd">${esc(n.data.r.block)}</div>` +
+    (names ? `<div data-a="wb"><b>Create WBLOCK&hellip;</b> <span class="mute">(just this one)</span></div>
+              <div data-a="light">Light Up in CAD</div>
+              <div data-a="add">${SEL.rows.has(n.key) ? 'Untick' : 'Tick (to merge with others at this level)'}</div>`
+           : `<div class="off">Only blocks in this drawing's model space can be made into a WBLOCK (not ones inside xrefs or layouts).</div>`) +
+    `<div data-a="copy">Copy Name</div>`;
+  m.style.left = Math.min(ev.clientX, innerWidth - 300) + 'px'; m.style.top = Math.min(ev.clientY, innerHeight - 140) + 'px';
+  m.onclick = e => {
+    const a = e.target.closest('[data-a]'); if (!a) { e.stopPropagation(); return; }
+    if (a.dataset.a === 'wb') wbOpen(n);
+    if (a.dataset.a === 'add') selToggle(n, !SEL.rows.has(n.key));
+    if (a.dataset.a === 'light') { if (!SEL.rows.has(n.key)) { selClear(); selToggle(n, true); } lightSel(); }
+    if (a.dataset.a === 'copy') navigator.clipboard.writeText(n.data.r.block).then(() => toast('Copied'));
+  };
+  document.body.appendChild(m);
+}
+function wbButton(n) {
+  return namesFor(n) ? `<button class="btn primary" style="width:100%;justify-content:center;margin-bottom:12px" onclick="wbOpen(kids.get(${esc(JSON.stringify(n.key))}))">Create WBLOCK&hellip;</button>` : '';
+}
+async function task(action, body, onProgress) {
+  const r = await post('/api/wb/' + action, body);
+  if (r.error) return { status: 'FAILED', message: r.error, _steps: [] };
+  for (;;) {
+    await new Promise(z => setTimeout(z, 600));
+    const t = await (await fetch('/api/wb/task/' + r.id)).json();
+    if (t.state !== 'running') { const res = t.result || {}; res._steps = t.steps || []; return res; }
+    if (onProgress && t.progress) onProgress(t.progress);
+  }
+}
+function stageOf(text) {
+  const t = String(text || '').toLowerCase();
+  if (/reopen|check/.test(t)) return 'check';
+  if (/^saving/.test(t)) return 'file';
+  if (/explod|measur|expand|flat|purg/.test(t)) return 'explode';
+  if (/copy|wblock/.test(t)) return 'copy';
+  return null;
+}
+
+function wbOpen(n) {
+  ctxClose();
+  if (!namesFor(n)) return;
+  if (WB && (S.phase === 'finding' || S.phase === 'making' || S.phase === 'picking')) { toast('Finish the current block first.'); return; }
+  if (!(SEL.rows.size === 1 && SEL.rows.has(n.key))) { selClear(); selToggle(n, true); }
+  wbOpenSel();
+}
+function wbOpenSel() {
+  ctxClose();
+  if (!SEL.rows.size) { toast('Tick at least one block first.'); return; }
+  if (WB && (S.phase === 'finding' || S.phase === 'making' || S.phase === 'picking')) { toast('Finish the current block first.'); return; }
+  let folder = ''; try { folder = localStorage.getItem('wbFolder') || ''; } catch (e) {}
+  if (!folder) folder = T.source.replace(/[\\\/][^\\\/]*$/, '');
+  const keys = [...SEL.rows.keys()];
+  const rows = keys.map(k => namesFor(SEL.rows.get(k)));
+  const blocks = rows.map(r => r[r.length - 1]);
+  const multi = keys.length > 1;
+  WB = { keys, key: keys[0], rows, allow: keys.map(allowFor), names: rows[0], blocks, block: multi ? blocks.length + ' blocks' : blocks[0],
+         occ: [], inc: new Set(), drawing: T.source, folder, log: [], result: null, stage: null };
+  const n = SEL.rows.get(keys[0]);
+  document.querySelectorAll('#tree .node.wbon').forEach(e => e.classList.remove('wbon'));
+  for (const k of keys) { const el = document.querySelector(`#tree li[data-key="${CSS.escape(k)}"] > .node`); if (el) el.classList.add('wbon'); }
+  const parentNames = rows[0].slice(0, -1);
+  const fname = (multi ? blocks[0] + ' + ' + (blocks.length - 1) + ' more' : blocks[0]).replace(/[<>:"\/\\|?*]/g, '_');
+  const w = $('wb'); $('wfm').hidden = false; document.body.style.overflow = 'hidden';
+  w.innerHTML = `
+    <div class="wf-hd"><div style="flex:1;min-width:0"><h2>${multi ? 'Create WBLOCK: ' + keys.length + ' Blocks Merged' : 'Create WBLOCK'}</h2>
+      <div class="wb-name" style="font-size:14px;font-weight:500">${multi ? blocks.map(esc).join(' <span class="mute">+</span> ') : esc(blocks[0])}</div>
+      <div class="wb-crumb">${esc(['Model space'].concat(parentNames).join(' › '))}${multi ? '' : ' › ' + esc(blocks[0])}
+        ${multi ? '' : (() => { const k = originKind(blocks[0], n.data.d); return ` &nbsp; <span class="tg ${k[0] === 'bound' ? 'out' : k[0] === 'plain' ? 'good' : ''}">${esc(k[1])}</span>`; })()}</div></div>
+      <button class="btn ghost sm" onclick="wbClearBoxes()" title="Remove the highlight in AutoCAD (Esc or REGEN in CAD does the same)">Remove Highlight</button>
+      <button class="btn ghost sm" onclick="wbClose()" title="Close" style="font-size:18px;line-height:1">&times;</button></div>
+    <div class="wf-body">
+      <nav class="wf-rail" aria-label="Where you are">
+        <div class="rg">Create WBLOCK</div><div class="tl vert" id="wbTlA" role="list"></div>
+        <div class="rg">Insert Back</div><div class="tl vert" id="wbTlB" role="list"></div>
+        <div class="wf-now" id="wfNow"></div>
+      </nav>
+      <div class="wf-main" id="wfMain">
+        <div class="wb-sec" id="sec-light"><h4><span class="n">1</span>Light Up in CAD</h4><div id="wb1"></div></div>
+        <div class="wb-sec" id="sec-check"><h4><span class="n">2</span>Check What Goes In</h4><div id="wb2" class="muted">After step 1.</div></div>
+        <div class="wb-sec" id="sec-save"><h4><span class="n">3</span>Name &amp; Save</h4>
+          <div class="field"><label>Folder</label><div class="in"><input type="text" id="wbFolder" class="path" value="${esc(folder)}" oninput="wbCheck()"><button class="btn sm" onclick="wbSaveAs()">Save As&hellip;</button></div></div>
+          <div class="field"><label>File Name</label><div class="in"><input type="text" id="wbName" value="${esc(fname)}" oninput="wbCheck()"><span class="mute">.dwg</span></div></div>
+          <div class="field" style="align-items:flex-start"><label>Standard Layers</label><div id="wbStd" style="flex:1;min-width:0"><span class="mute">Reading the layer standard&hellip;</span></div></div>
+          <div id="wbWarn"></div>
+          <div id="wbWhat"></div>
+          <button class="btn primary" id="wbGo" onclick="wbMake()" disabled style="width:100%;justify-content:center;margin-top:4px">Create WBLOCK</button>
+          <div id="wb3"></div></div>
+        <div class="wb-sec dim" id="sec-insert"><div id="wbIns"><h4><span class="n">4</span>Insert Back into the Drawing</h4><p class="mute">After the WBLOCK is saved.</p></div></div>
+        <div class="wb-sec dim" id="sec-refresh"><h4><span class="n">5</span>Refresh Tree</h4>
+          <p class="muted" style="margin:0 0 8px">Reads the drawing again as it is open in Plant 3D, unsaved changes included, so the tree shows the inserted block.</p>
+          <button class="btn" id="wbRefresh" onclick="refreshLive()" disabled>Refresh Tree from CAD</button></div>
+        <details class="log"><summary>What AutoCAD Did, Step by Step</summary><pre id="wbLog">Nothing yet.</pre></details>
+      </div>
+    </div>`;
+  w.querySelectorAll('.tl.vert').forEach(t => t.addEventListener('click', e => { const n = e.target.closest('.tn'); if (n) railGo(n.dataset.k); }));
+  setPhase('finding');
+  wbCheck(); wbFind(0); stdLoad();
+}
+async function wbClearBoxes() {
+  if (!WB) return;
+  const r = await task('clear', { drawing: WB.drawing });
+  toast(r.status === 'OK' ? 'Highlight removed in AutoCAD.' : (r.message || 'Could not remove the highlight. Type REGEN in AutoCAD instead.'));
+}
+function wbClose() {
+  if (WB && (S.phase === 'finding' || S.phase === 'making' || S.phase === 'picking')) { toast('Wait until AutoCAD is done with this step.'); return; }
+  WB = null; $('wfm').hidden = true; $('wb').innerHTML = ''; document.body.style.overflow = '';
+  document.querySelectorAll('#tree .node.wbon').forEach(e => e.classList.remove('wbon'));
+  setPhase('tree');
+}
+function wbLog(title, res) {
+  const lines = (res._steps || []).map(s => (s[1] ? '✓ ' : '✗ ') + s[0]).concat(res.log || []);
+  WB.log.push('── ' + title + ' ──', ...lines);
+  const e = $('wbLog'); if (e) e.textContent = WB.log.join('\n');
+}
+const SEC_OF = { light: 'sec-light', check: 'sec-check', save: 'sec-save', verify: 'sec-save', insert: 'sec-insert', refresh: 'sec-refresh' };
+function railDraw() {
+  if (!$('wbTlA')) return;
+  const st = flowStates();
+  drawTl($('wbTlA'), FLOW.slice(3, 7), st.slice(3, 7));
+  drawTl($('wbTlB'), FLOW.slice(7), st.slice(7));
+  const nw = $('wfNow'); if (nw) nw.innerHTML = nowText();
+  const cur = PH[S.phase] ? FLOW[Math.min(FLOW.length - 1, Math.max(3, PH[S.phase][0]))][0] : 'light';
+  const after = S.phase === 'saved' || /^ins/.test(S.phase);
+  $('sec-insert').classList.toggle('dim', !after);
+  $('sec-refresh').classList.toggle('dim', S.phase !== 'inserted');
+  $('wbRefresh').disabled = !(S.phase === 'inserted' || S.phase === 'saved');
+  if (WB && WB._cur !== cur) { WB._cur = cur; railGo(cur, true); }
+}
+function railGo(k, auto) {
+  const sec = $(SEC_OF[k] || 'sec-light'), main = $('wfMain'); if (!sec || !main) return;
+  if (auto && k === 'light') return;
+  main.scrollTo({ top: sec.offsetTop - 8, behavior: 'smooth' });
+}
+function wbDraw() {
+  if (!WB || !$('wbTlA')) return;
+  railDraw();
+  // 1
+  const n = WB.occ.length;
+  if (S.phase === 'finding') $('wb1').innerHTML = `<p class="muted"><span class="pill running" style="height:22px"><span class="spin"></span>Working</span>
+      Plant 3D is opening the drawing (read-only, if it isn't open already) and highlighting every <b>${esc(WB.block)}</b> with everything inside it. CAD zooms to them. Nothing is added to the drawing.</p>`;
+  else if (S.phase === 'findfail') {
+    if (!WB.failShown) {
+      WB.failShown = true;
+      $('wb1').innerHTML = `<div class="err">${esc(S.msg)}</div><div id="wbWhy"></div><button class="btn sm" onclick="wbFind(0)">Try Again</button>
+        <details class="log" open><summary>What the App Did, Step by Step</summary>${stepsList(WB.lastSteps)}</details>`;
+      cadCheck($('wbWhy'));
+    }
+  }
+  else if (n) $('wb1').innerHTML = `<p><span class="tg good">&#10003; ${n} found</span> highlighted in Plant 3D${WB.truncated ? ' (the first ' + n + ')' : ''}${WB.rows.length > 1 ? ' across ' + WB.rows.length + ' blocks' : ''}.
+      <button class="btn sm ghost" onclick="wbFind(0)">Light Up Again</button></p>`;
+  // 2
+  const inc = WB.inc;
+  if (!n) $('wb2').innerHTML = '<p class="mute">After step 1.</p>';
+  else if (n === 1) { const o = WB.occ[0]; $('wb2').innerHTML = `<p><span class="tg good">&#10003; Only one</span> ${esc(o.block)} at <b>${fmt(o.x)}, ${fmt(o.y)}</b>, rotation ${o.rotationDeg}&deg;, layer ${esc(o.layer)}.</p>` + boxNote(o); }
+  else {
+    const multiRow = WB.rows.length > 1;
+    $('wb2').innerHTML = `<p class="muted" style="margin-top:0"><b>${inc.size} of ${n}</b> ticked go into <b>one</b> WBLOCK, each exactly where it is in the master.
+        Untick any to leave them out; tick just one and that one sets the coordinates. Click a row to have CAD highlight only that one and zoom to it.
+        <span style="white-space:nowrap"><a href="#" onclick="wbAll(true);return false">All</a> &middot; <a href="#" onclick="wbAll(false);return false">None</a></span></p>
+      <div class="inst"><table class="list"><tr><th></th><th>#</th>${multiRow ? '<th>Block</th>' : ''}<th class="num">X</th><th class="num">Y</th><th class="num">Rot</th><th>Layer</th><th>Inside</th></tr>` +
+      WB.occ.map(o => `<tr class="click${inc.has(o.index) ? ' chosen' : ''}" onclick="wbChoose(${o.index})" title="${esc(o.inside)}">
+        <td onclick="event.stopPropagation()"><input type="checkbox"${inc.has(o.index) ? ' checked' : ''} onchange="wbInc(${o.index}, this.checked)"></td>
+        <td><b>${o.index}</b></td>${multiRow ? `<td>${esc(o.block)}</td>` : ''}<td class="num">${fmt(o.x)}</td><td class="num">${fmt(o.y)}</td><td class="num">${o.rotationDeg}&deg;${o.mirrored ? ' M' : ''}</td>
+        <td>${esc(o.layer)}</td><td class="mute">${esc(o.inside.replace(/^Model space( > )?/, '') || 'model space')}</td></tr>`).join('') + '</table></div>' +
+      (S.phase === 'picking'
+        ? `<div class="hint" style="margin-top:8px;background:var(--amber-soft)"><b>Go to AutoCAD and click the one you want</b> (one of the highlighted ones). Esc in AutoCAD cancels.</div>`
+        : `<div style="margin-top:8px"><button class="btn sm" onclick="wbPick()">Pick One in CAD</button></div>`);
+  }
+  // 3
+  const one = inc.size === 1 ? WB.occ.find(x => inc.has(x.index)) : null;
+  const o = one;
+  if (o && $('wb2')) {
+    const mc = document.getElementById('wbMaster');
+    const html = masterCoords(o);
+    if (!mc) $('wb2').insertAdjacentHTML('beforeend', '<div id="wbMaster">' + html + '</div>'); else mc.innerHTML = html;
+  }
+  if (n > 1 && o && $('wb2')) { const bn = document.getElementById('wbBoxNote'); if (!bn) $('wb2').insertAdjacentHTML('beforeend', '<div id="wbBoxNote">' + boxNote(o) + '</div>'); else bn.innerHTML = boxNote(o); }
+  $('wbWhat').innerHTML = `<ul class="what">
+      <li>One drawing with ${inc.size > 1 ? '<b>all ' + inc.size + ' ticked placements</b>' : o ? '<b>#' + o.index + '</b>' : 'what you tick'} and everything nested inside ${inc.size > 1 ? 'each' : 'it'}.</li>
+      <li>Exploded to plain geometry (lines, arcs, text&hellip;), colors kept, then sorted by color onto the <b>standard layers you keep</b> (above). Any other color goes on layer 0 as ByLayer / Continuous / ByLayer.</li>
+      <li>Base point <b>0,0,0 = the master's 0,0,0</b>${o ? `: insert it at 0,0 and it lands back at ${fmt(o.x)}, ${fmt(o.y)}` : ': insert it at 0,0 and every piece lands back where it is'}.</li>
+      <li>Your drawing in CAD is not changed. An existing file is never replaced.</li></ul>`;
+  if (S.phase === 'making') $('wb3').innerHTML = `<div class="bar"><i></i></div><p class="muted" style="margin:0">${esc(S.msg || 'Starting')}</p>`;
+  else if (S.phase === 'makefail') $('wb3').innerHTML = `<div class="err">${esc(S.msg)}</div>` +
+      (WB.result && WB.result.rejectedFile ? `<p class="muted">The rejected copy is kept for a look: <span class="path">${esc(WB.result.rejectedFile)}</span></p>` : '') +
+      checksHtml(WB.result) + `<button class="btn sm" onclick="wbMake()">Try Again</button>`;
+  else if (S.phase === 'saved' && !$('wb3').querySelector('.ok-box')) {
+    const r = WB.result, js = esc(JSON.stringify(r.file));
+    const gv = (r.validation || {}).geometryVerification || {};
+    $('wb3').innerHTML = `<div class="ok-box"><div class="big-ok"><div class="ck">&#10003;</div><div style="min-width:0">
+        <b>Saved</b><div class="path" style="word-break:break-all">${esc(r.file)}</div>
+        <div class="muted" style="font-size:12.5px;margin-top:4px">${fmt(r.entities)} entities${r.sizeBytes ? ' &middot; ' + mb(r.sizeBytes) : ''}
+          ${r.leftOut ? ` &middot; <span title="On frozen, off or no-plot layers inside the block, so not visible in the drawing either">${fmt(r.leftOut)} hidden pieces left out</span>` : ''}
+          ${gv.samples ? ` &middot; geometry matched AutoCAD's own Explode (${gv.matched}/${gv.samples})` : ''}</div></div></div>
+        <div style="margin-top:10px;display:flex;gap:6px;flex-wrap:wrap">
+          <button class="btn sm" onclick="post('/api/open-in-cad', {path: ${js}})">Open in CAD</button>
+          <button class="btn sm" onclick="post('/api/open-folder', {path: ${js}})">Show in Folder</button>
+          <button class="btn sm primary" onclick="wbClose()">Next Block</button></div></div>` + stdResult(r) + coordCheck(r.coordinates) +
+      ((r.warnings || []).length ? `<div class="hint" style="background:var(--amber-soft);margin-top:8px"><b>Saved, but look at this:</b><ul style="margin:4px 0 0;padding-left:18px">` +
+        r.warnings.map(w => '<li>' + esc(w) + '</li>').join('') + '</ul>' +
+        ((r.outside || []).length ? `<div style="margin-top:6px"><b>What reaches past the block (${fmt(r.outsideCount)}):</b><ul style="margin:2px 0 0;padding-left:18px;font:12px var(--mono)">` +
+          r.outside.map(o => '<li>' + esc(o) + '</li>').join('') + '</ul></div>' : '') + '</div>' : '') + checksHtml(r);
+  } else if (!/^ins/.test(S.phase)) $('wb3').innerHTML = '';
+  // 4. insert it back
+  const wi = $('wbIns');
+  if (wi) {
+    if (S.phase === 'saved' && !$('wb4')) wi.innerHTML = insHtml();
+    else if (S.phase === 'inserted') wi.innerHTML = insHtml();
+    else if (!(S.phase === 'saved' || /^ins/.test(S.phase))) wi.innerHTML = '<h4><span class="n">4</span>Insert Back into the Drawing</h4><p class="mute">After the WBLOCK is saved.</p>';
+  }
+  wbCheck();
+}
+// ---------------------------------------------------------------- 4. insert it back
+function insSame() {
+  const r = WB.result; if (!r || !r.file) return false;
+  const stem = r.file.replace(/^.*[\\\/]/, '').replace(/\.dwg$/i, '').toLowerCase();
+  return (WB.blocks || []).some(b => String(b).toLowerCase() === stem);
+}
+function insHtml() {
+  const r = WB.result; if (!r || !r.file) return '';
+  const chains = WB.madeChains || [], top = chains.filter(c => c.length === 1).length, nested = chains.length - top;
+  const stem = r.file.replace(/^.*[\\\/]/, '').replace(/\.dwg$/i, '');
+  const dn = WB.drawing.replace(/^.*[\\\/]/, '');
+  if (WB.inserted) return `<div class="wb-sec" id="wb4"><h4><span class="n">4</span>Insert Back into the Drawing</h4>${WB.inserted}</div>`;
+  const same = insSame();
+  return `<div class="wb-sec" id="wb4"><h4><span class="n">4</span>Insert Back into ${esc(dn)}</h4>
+    <div class="field"><label>Layer</label><div class="in"><input type="text" id="insLayer" value="${esc(stem)}"></div></div>
+    <div class="field"><label>New Layer Color</label><div class="in" style="align-items:center;gap:8px"><input type="number" id="insColor" min="1" max="255" value="${insColorDefault()}" style="width:90px" oninput="insColorSave()"><span id="insSw">${sw(insColorDefault())}</span><span class="mute" style="font-size:12px">color number 1&ndash;255; what is on layer 0 in the block shows in this color</span></div></div>
+    <p class="mute" style="font-size:12.5px;margin:2px 0 8px">Goes in as block <b>${esc(stem)}</b> at 0,0, scale 1, rotation 0, on that layer. If the layer is already in the drawing you'll be asked first (it keeps its own color) and it becomes the current layer.</p>
+    ${same ? `<div class="hint" style="margin:0 0 8px">Same name as the block it was made from, so it <b>replaces</b> it: the ${top || ''} ticked original${top === 1 ? ' is' : 's are'} erased, the old definition is purged, then the new block goes in.${nested ? ` <span class="mute">${nested} nested cop${nested > 1 ? 'ies stay' : 'y stays'} inside ${nested > 1 ? 'their' : 'its'} parent.</span>` : ''} If other copies of it are elsewhere in the drawing, you'll be asked first.</div>`
+    : `<div style="display:flex;flex-direction:column;gap:6px;margin-bottom:8px;font-size:13.5px">
+      <label style="display:flex;gap:8px;align-items:flex-start"><input type="radio" name="insMode" value="replace" onchange="insReady()"${top ? '' : ' disabled'}>
+        <span><b>Replace the original${top > 1 ? 's' : ''}</b>: erase the ${top || ''} cop${top === 1 ? 'y' : 'ies'} it was made from, then insert it.${nested ? ` <span class="mute">(${nested} nested cop${nested > 1 ? 'ies are' : 'y is'} part of ${nested > 1 ? 'their' : 'its'} parent block and stay${nested > 1 ? '' : 's'}.)</span>` : ''}${top ? '' : ' <span class="mute">Not possible here: what it was made from sits inside another block.</span>'}</span></label>
+      <label style="display:flex;gap:8px;align-items:flex-start"><input type="radio" name="insMode" value="keep" onchange="insReady()"><span><b>Keep both</b>: insert it on its own layer; the original stays.</span></label>
+    </div>`}
+    <button class="btn primary" id="insGo"${same ? '' : ' disabled'} onclick="wbInsert()" style="width:100%;justify-content:center">${same ? 'Replace &amp; Insert at 0,0' : 'Choose an Option Above'}</button>
+    <div id="insOut"></div>
+    <p class="mute" style="font-size:12px;margin:6px 0 0">This tool never saves a drawing. Check it in CAD and save it yourself; UNDO in CAD reverses the insert.</p></div>`;
+}
+function insColorDefault() { try { const v = parseInt(localStorage.getItem('insColor') || '72', 10); return v >= 1 && v <= 255 ? v : 72; } catch (e) { return 72; } }
+function insColorSave() { const v = parseInt($('insColor').value, 10); if (v >= 1 && v <= 255) { try { localStorage.setItem('insColor', v); } catch (e) {} $('insSw').innerHTML = sw(v); } }
+function insReady() { const m = document.querySelector('input[name=insMode]:checked'); const b = $('insGo'); if (b) { b.disabled = !m; b.textContent = m ? (m.value === 'replace' ? 'Replace &amp; Insert at 0,0' : 'Insert at 0,0') : 'Choose an Option Above'; } }
+// a question in the panel; resolves with the value of the button clicked
+function askInline(html, buttons) {
+  return new Promise(res => {
+    const box = $('insOut');
+    box.innerHTML = `<div class="hint" style="margin-top:8px;background:var(--amber-soft)">${html}<div style="display:flex;gap:6px;margin-top:8px">` +
+      buttons.map((b, i) => `<button class="btn sm${i === 0 ? ' primary' : ''}" data-v="${esc(b[0])}">${esc(b[1])}</button>`).join('') + '</div></div>';
+    box.querySelectorAll('button[data-v]').forEach(b => b.onclick = () => { box.innerHTML = ''; res(b.dataset.v); });
+  });
+}
+async function wbInsert() {
+  const same = insSame();
+  const m = document.querySelector('input[name=insMode]:checked');
+  if (!same && !m) return;
+  const replace = same || m.value === 'replace';
+  const r0 = WB.result, layer = $('insLayer').value.trim();
+  const col = parseInt($('insColor').value, 10);
+  const items = [{ file: r0.file, layer, x: 0, y: 0, color: col >= 1 && col <= 255 ? col : 72 }];
+  const top = (WB.madeChains || []).filter(c => c.length === 1);
+  $('insGo').disabled = true;
+  $('insOut').innerHTML = '<p class="muted" style="margin:6px 0 0">Checking the drawing in Plant 3D&hellip;</p>';
+  const chk = await task('insertcheck', { drawing: WB.drawing, items, replace: WB.madeChains || [] });
+  if (!WB) return;
+  wbLog('Check before inserting', chk);
+  if (chk.status !== 'OK') { $('insOut').innerHTML = `<div class="err">${esc(chk.message || 'Plant 3D did not answer.')}</div>`; $('insGo').disabled = false; return; }
+  const it = (chk.items || [])[0] || {};
+  const purge = replace && it.sameAsOriginal;
+  let redefine = false, current = false;
+  if (it.blockExists && (!purge || it.otherCopies > 0)) {
+    const v = await askInline(purge
+      ? `<b>${fmt(it.otherCopies)} other cop${it.otherCopies === 1 ? 'y' : 'ies'}</b> of <b>${esc(it.block)}</b> elsewhere in the drawing still use the old definition, so it can't be purged. Inserting updates ${it.otherCopies === 1 ? 'it' : 'them all'} to the new block.`
+      : `A block named <b>${esc(it.block)}</b> is already in the drawing (${fmt(it.copies)} cop${it.copies === 1 ? 'y' : 'ies'}). Inserting updates its definition, so every copy changes.`,
+      [['go', it.otherCopies === 1 || it.copies === 1 ? 'Update It' : 'Update All'], ['stop', 'Cancel']]);
+    if (v !== 'go') { $('insOut').innerHTML = '<p class="mute" style="margin:6px 0 0">Cancelled. Nothing was changed.</p>'; insReady(); if (same) $('insGo').disabled = false; return; }
+    redefine = true;
+  }
+  if (it.layerExists) {
+    const v = await askInline(`Layer <b>${esc(it.layer)}</b> already exists in the drawing${it.layerIsCurrent ? ' (it is the current layer)' : ''}. Put the block on it and make it the current layer?`,
+      [['go', 'Use Layer & Make Current'], ['stop', 'Cancel']]);
+    if (v !== 'go') { $('insOut').innerHTML = '<p class="mute" style="margin:6px 0 0">Cancelled. Nothing was changed. Change the layer name above to use a new layer.</p>'; insReady(); if (same) $('insGo').disabled = false; return; }
+    current = true;
+  }
+  setPhase('inserting');
+  $('insOut').innerHTML = '<div class="bar"><i></i></div><p class="muted" style="margin:0">Inserting in Plant 3D&hellip;</p>';
+  const r = await task('insert', { drawing: WB.drawing, items, replace: replace ? top : [], purge, redefine, current });
+  if (!WB) return;
+  wbLog('Insert it back', r);
+  if (r.status !== 'OK') { setPhase('insfail', r.message || 'Plant 3D did not answer.'); $('insOut').innerHTML = `<div class="err">${esc(r.message || 'Plant 3D did not answer.')}</div>`; $('insGo').disabled = false; return; }
+  const x = (r.inserted || [])[0] || {};
+  WB.inserted = `<div class="ok-box"><div class="big-ok"><div class="ck">&#10003;</div><div><b>Inserted</b> as block <b>${esc(x.block)}</b> on layer <b>${esc(x.layer)}</b> at 0,0${x.redefined ? ' (the existing definition was updated)' : ''}.
+      ${r.erased ? `<div class="muted" style="font-size:12.5px">${r.erased} original cop${r.erased > 1 ? 'ies' : 'y'} erased${r.purged ? ', ' + r.purged + ' unused definition' + (r.purged > 1 ? 's' : '') + ' purged' : ''}.</div>` : ''}
+      ${r.currentLayer ? `<div class="muted" style="font-size:12.5px">Current layer is now ${esc(r.currentLayer)}.</div>` : ''}
+      ${(r.warnings || []).map(w => `<div class="mute" style="font-size:12.5px">${esc(w)}</div>`).join('')}
+      <div class="muted" style="font-size:12.5px;margin-top:4px">It is highlighted in Plant 3D. <b>Not saved</b>: check it, then save the drawing yourself. UNDO reverses it.</div></div></div></div>`;
+  setPhase('inserted');
+  toast('Inserted. Nothing was saved.');
+}
+const f3 = v => (v === undefined || v === null) ? '–' : Number(v).toLocaleString(undefined, { minimumFractionDigits: 3, maximumFractionDigits: 3 });
+function masterCoords(o) {
+  const b = o.box;
+  return `<table class="coord"><tr><th colspan="3">Master coordinates of #${o.index}</th></tr>
+    <tr><td>Insertion point</td><td>X ${f3(o.x)}</td><td>Y ${f3(o.y)}</td></tr>
+    <tr><td>Rotation / Z</td><td>${o.rotationDeg}&deg;</td><td>Z ${f3(o.z)}</td></tr>
+    ${b ? `<tr><td>Linework, lower left</td><td>X ${f3(b[0])}</td><td>Y ${f3(b[1])}</td></tr>
+    <tr><td>Linework, upper right</td><td>X ${f3(b[2])}</td><td>Y ${f3(b[3])}</td></tr>` : ''}</table>
+    <div class="mute" style="font-size:12px">The WBLOCK keeps these exact coordinates (base point 0,0,0, same units as the master). After saving, up to 200 real points of the block are looked up in the WBLOCK to prove each one is in the same place.</div>`;
+}
+function coordCheck(c) {
+  if (!c || !c.master || !c.wblock) return '';
+  const pts = c.pointsChecked ? c.pointsFound === c.pointsChecked : null;
+  const base = c.baseIsOrigin, units = c.master.units === c.wblock.units;
+  const ok = pts !== false && base && units;
+  const ins = c.master.insertion || [];
+  const tick = v => v ? '<span style="color:var(--green);font-weight:700">&#10003;</span>' : '<span style="color:var(--red);font-weight:700">&#10007;</span>';
+  return `<div class="hint" style="margin-top:8px;background:${ok ? 'var(--green-soft)' : 'var(--amber-soft)'}">
+    <b>${ok ? '&#10003; It lines back up' : 'Check this'}:</b> inserting the WBLOCK at 0,0 puts the block back where it is in the master.
+    <table class="coord" style="margin-top:6px">
+      ${c.pointsChecked ? `<tr><td>${tick(pts)} Points on the block</td><td><b>${fmt(c.pointsFound)} of ${fmt(c.pointsChecked)}</b> are at the same X, Y in the WBLOCK as in the master</td></tr>` : ''}
+      ${(c.pointsMissed || []).length ? `<tr><td>&nbsp;&nbsp;&nbsp;&nbsp;not found at</td><td>${c.pointsMissed.map(esc).join('; ')}</td></tr>` : ''}
+      <tr><td>${tick(base)} Base point</td><td>${(c.wblock.basePoint || []).map(f3).join(', ')} (must be 0, 0, 0)</td></tr>
+      <tr><td>${tick(units)} Units</td><td>master ${esc(c.master.units || '?')}, WBLOCK ${esc(c.wblock.units || '?')}</td></tr>
+      <tr><td>Block in the master</td><td>insertion point ${f3(ins[0])}, ${f3(ins[1])} at ${c.master.rotationDeg}&deg;</td></tr>
+    </table></div>`;
+}
+// what the box in CAD covers, and what the block hides
+function boxNote(o) {
+  if (!o) return '';
+  const hl = (o.hiddenLayers || []).map(([l, c]) => esc(l) + ' &times;' + fmt(c)).join(', ');
+  if (o.partial || o.visibleObjects === undefined) return '';
+  let h = `<div class="hint" style="margin-top:6px"><b>What goes into the WBLOCK:</b> the ${fmt(o.visibleObjects)} visible objects in it.`;
+  if (o.strays) {
+    const sl = (o.strayList || []).map(([t, l, c, x, y]) => `${fmt(c)} &times; ${esc(t)} on layer ${esc(l)} (near ${fmt(Math.round(x))}, ${fmt(Math.round(y))})`).join('; ');
+    h += `<br><b>Watch out:</b> ${fmt(o.strays)} visible object${o.strays > 1 ? 's are' : ' is'} far away from the rest of this block: ${sl}.
+      They are part of the block, so they <b>will be in the WBLOCK</b> too. CAD zooms to the main part and ignores them.`;
+  }
+  if (o.hiddenObjects) h += `<br><b>Left out:</b> ${fmt(o.hiddenObjects)} hidden objects on frozen or off layers${hl ? ' (' + hl + ')' : ''}. Thaw or turn on those layers first if you need them.`;
+  return h + '</div>';
+}
+function checksHtml(r) {
+  const c = ((r || {}).validation || {}).checks || [];
+  if (!c.length) return '';
+  return `<details class="log"><summary>The checks (${c.filter(x => x.passed).length} of ${c.length} passed)</summary><div class="checks">` +
+    c.map(x => `<div><span class="${x.passed ? 'p' : x.fatal ? 'f' : 'w'}">${x.passed ? 'PASS' : x.fatal ? 'FAIL' : 'WARN'}</span> ${esc(x.check)}${x.detail ? ' <span class="mute">' + esc(x.detail) + '</span>' : ''}</div>`).join('') + '</div></details>';
+}
+async function wbFind(focus) {
+  setPhase('finding');
+  const r = await task('find', { drawing: WB.drawing, rows: WB.rows, allow: WB.allow, focus });
+  if (!WB) return;
+  wbLog(focus ? 'Zoom to #' + focus : 'Light up', r);
+  WB.lastSteps = r._steps || []; WB.failShown = false;
+  if (r.status !== 'OK') { setPhase('findfail', r.message || 'AutoCAD did not answer.'); return; }
+  WB.occ = r.occurrences || []; WB.truncated = r.truncated;
+  WB.inc = new Set(WB.occ.map(o => o.index));      // what the tree ticks matched: all in, untick to leave out
+  setPhase('save');
+}
+function wbInc(i, on) { if (on) WB.inc.add(i); else WB.inc.delete(i); wbDraw(); $('nowTxt').innerHTML = nowText(); }
+function wbAll(on) { WB.inc = new Set(on ? WB.occ.map(o => o.index) : []); wbDraw(); $('nowTxt').innerHTML = nowText(); }
+async function wbChoose(i) {
+  if (S.phase === 'finding' || S.phase === 'making' || S.phase === 'picking') return;
+  const r = await task('find', { drawing: WB.drawing, rows: WB.rows, allow: WB.allow, focus: i });   // highlight only that one and zoom to it
+  if (WB) wbLog('Zoom to #' + i, r);
+}
+async function wbPick() {
+  setPhase('picking');
+  const r = await task('pick', { drawing: WB.drawing, rows: WB.rows, allow: WB.allow });
+  if (!WB) return;
+  wbLog('Pick in CAD', r);
+  if (r.status === 'OK' && r.picked > 0) { WB.inc = new Set([r.picked]); setPhase('save'); }
+  else { toast(r.message || 'Nothing picked.'); setPhase('save'); }
+}
+let wbT = null;
+function wbPath() {
+  const f = $('wbFolder').value.trim().replace(/^"|"$/g, '').replace(/[\\\/]+$/, '');
+  return f + '\\' + $('wbName').value.trim().replace(/\.dwg$/i, '') + '.dwg';
+}
+function wbCheck() {
+  clearTimeout(wbT);
+  wbT = setTimeout(async () => {
+    if (!WB || !$('wbFolder')) return;
+    const path = wbPath();
+    let st = { exists: false, folderExists: true };
+    try { st = await (await fetch('/api/exists?path=' + encodeURIComponent(path))).json(); } catch (e) {}
+    const busy = S.phase === 'finding' || S.phase === 'making' || S.phase === 'picking';
+    const ok = WB.inc.size > 0 && !st.exists && $('wbName').value.trim() && !busy;
+    $('wbWarn').innerHTML = st.exists ? `<div class="err" style="margin:4px 0">${esc(path.replace(/^.*[\\\/]/, ''))} already exists in that folder. Choose another name.</div>`
+      : !st.folderExists ? '<p class="mute" style="font-size:12.5px;margin:2px 0">That folder doesn\'t exist yet; it will be created.</p>' : '';
+    $('wbGo').disabled = !ok;
+    $('wbGo').textContent = !WB.occ.length ? 'Create WBLOCK' : !WB.inc.size ? 'Tick at Least One in Step 2' : WB.inc.size > 1 ? 'Create WBLOCK (' + WB.inc.size + ' Placements)' : 'Create WBLOCK';
+  }, 200);
+}
+async function wbMake() {
+  const chosen = WB.occ.filter(x => WB.inc.has(x.index)); if (!chosen.length) return;
+  const save = wbPath();
+  WB.fileName = save.replace(/^.*[\\\/]/, ''); WB.stage = 'copy'; WB.result = null;
+  try { localStorage.setItem('wbFolder', $('wbFolder').value.trim()); } catch (e) {}
+  setPhase('making', 'Copying it into a new drawing');
+  WB.madeChains = chosen.map(o => o.handles); WB.inserted = null;
+  const r = await task('wblock', { drawing: WB.drawing, chains: WB.madeChains, savePath: save, layers: stdChosen() }, p => {
+    const st = stageOf(p.stage); if (st) WB.stage = st;
+    S.msg = p.stage || ''; $('nowTxt').innerHTML = nowText(); railDraw(); drawFlow();
+    const e = $('wb3'); if (e && e.querySelector('p')) e.querySelector('p').textContent = (p.stage || '') + (p.message && p.message !== 'done' ? ' · ' + p.message : '');
+  });
+  if (!WB) return;
+  WB.result = r; wbLog('Create WBLOCK', r);
+  if (r.status !== 'OK') { setPhase('makefail', r.message || 'AutoCAD did not answer.'); setTimeout(() => { const e = $('wb3'); if (e) e.scrollIntoView({ block: 'nearest' }); }, 50); return; }
+  WB.stage = 'check';
+  setPhase('saved'); loadSide();
+  setTimeout(() => { const e = $('wb3'); if (e) e.scrollIntoView({ block: 'nearest', behavior: 'smooth' }); }, 50);
+  $('wbName').value = $('wbName').value.replace(/(-\d+)?$/, m => '-' + ((parseInt((m || '-1').slice(1)) || 1) + 1));
+}
+
+
+// ================================================================ where a block comes from
+// Everything here is read from the map: which file holds the definition, the xref
+// chain that brought that file in, and what the name says about how it was made.
+function xrefChain(f) {
+  const chain = [];
+  let cur = f, guard = 0;
+  while (cur && cur !== T.files[0] && guard++ < 20) {
+    let parent = null, x = null;
+    for (const p of T.files) { const hit = (p.xrefs || []).find(e => e.fileId === cur.id); if (hit) { parent = p; x = hit; break; } }
+    if (!parent) break;
+    chain.unshift([parent, x, cur]);
+    cur = parent;
+  }
+  return chain;
+}
+function nestingOf(n) {
+  const segs = n.key.split('/');
+  const i = segs.lastIndexOf('ms');
+  return i < 0 ? [] : segs.slice(i + 1, -1).filter(x => !x.startsWith('x:') && !/^\d+$/.test(x));
+}
+function originKind(name, d) {
+  if (/\|/.test(name)) return ['xdep', 'Part of an xref', 'This name has the xref prefix (xref|block): the definition belongs to an attached xref drawing and is read from that file every time the drawing opens.'];
+  const bound = name.match(/^(.*?)\$(\d+)\$(.*)$/);
+  if (bound) return ['bound', 'From a bound xref', `This block came from the xref <b>${esc(bound[1])}</b> (the drawing ${esc(bound[1])}.dwg). That xref was later <b>bound</b>, which copied its contents into this drawing and renamed its blocks ${esc(bound[1])}$${bound[2]}$&hellip;. The data now lives in this drawing; the original ${esc(bound[1])}.dwg is no longer read.`];
+  if (/^A\$C[0-9a-f]{8}$/i.test(name)) return ['pasted', 'Pasted as a block', 'Made with Paste as Block (Ctrl+Shift+V): AutoCAD wrapped copied objects in a block and gave it a generated name. There is no .dwg file for it; the data lives only inside the drawing below.'];
+  if (/^\*U\d+/i.test(name)) return ['anon', 'Anonymous (generated)', 'An anonymous block AutoCAD made itself: usually one placement\'s variant of a dynamic block, or an array, table or exported group. It has no file of its own.'];
+  if (/^\*/.test(name)) return ['anon', 'Anonymous (generated)', 'A block AutoCAD manages itself (its name starts with *). It has no file of its own.'];
+  if (/-(\d{6,8}|V\d+)-LEVEL \d+$/i.test(name)) return ['revit', 'Exported from Revit', 'The name pattern (family - type - id - LEVEL) is what Revit writes when a model is exported to DWG. There is usually no separate .dwg for it.'];
+  if (/^HATCH\d+$/i.test(name)) return ['gen', 'Generated', 'A generated hatch block; it has no file of its own.'];
+  if (d && d.dynamic) return ['dynamic', 'Dynamic block', 'A dynamic block: the definition here is the master, and each placement uses its own hidden variant (*U&hellip;) holding its visibility, stretch or flip state.'];
+  return ['plain', 'Block stored in the drawing', 'An ordinary block definition, stored in the drawing named under Data lives in. If it was inserted from a .dwg, AutoCAD did not record which one; the Block source files tab matches it to files by name.'];
+}
+function originHtml(n) {
+  const d = n.data || {}; const f = d.f; if (!f) return '';
+  const name = d.r ? d.r.block : d.d ? d.d.name : '';
+  const def = d.d || {};
+  const [kind, title, why] = originKind(name, def);
+  const inXref = f !== T.files[0];
+  const chain = xrefChain(f);
+  const nest = nestingOf(n);
+  const places = parentsOf(f, name);
+  const src = SRC && SRC.byName[name];
+  const cls = kind === 'bound' || inXref || kind === 'xdep' ? 'out' : kind === 'pasted' || kind === 'anon' || kind === 'revit' ? '' : 'good';
+  let h = `<div class="origin"><div class="o-hd"><span class="tg ${cls}">${esc(inXref ? 'Lives in an xref' : title)}</span>${inXref && kind !== 'plain' ? ` <span class="tg">${esc(title)}</span>` : ''}</div>`;
+  // where the data lives
+  h += `<div class="o-row"><div class="o-k">Data lives in</div><div><b>${esc(f.name)}</b>${inXref ? ' <span class="tg out">an xref, not this drawing</span>' : ' <span class="mute">(this drawing)</span>'}
+        <div class="path mute" style="word-break:break-all">${esc(f.path)}</div></div></div>`;
+  // how it got here
+  const steps = [`<b>${esc(T.files[0].name)}</b> (the drawing you mapped)`];
+  for (const [parent, x, child] of chain)
+    steps.push(`attaches xref <b>${esc(x.name)}</b> &rarr; <span class="path">${esc(child.path)}</span> <span class="mute">(${esc(x.type)}${x.status !== 'found' ? ', ' + esc(x.status) : ''})</span>`);
+  steps.push('model space');
+  for (const p of nest) steps.push('inside block <b>' + esc(p) + '</b>');
+  steps.push(`<b>${esc(name)}</b>${d.r ? ' &times;' + fmt(d.r.count) + ' here' : ''}`);
+  h += `<div class="o-row"><div class="o-k">How it got here</div><ol class="o-chain">${steps.map(x => '<li>' + x + '</li>').join('')}</ol></div>`;
+  h += `<div class="o-row"><div class="o-k">What it is</div><div>${why}</div></div>`;
+  if (inXref) h += `<div class="o-row"><div class="o-k">Editing it</div><div>Changes have to be made in <b>${esc(f.name)}</b>. Anything you change in the drawing you mapped is overwritten from that file the next time it reloads.
+      A WBLOCK can only be made from blocks in the mapped drawing's own model space: map <b>${esc(f.name)}</b> itself to work on this one.
+      <div style="margin-top:6px"><button class="btn sm" onclick="mapFile(${esc(JSON.stringify(f.path))})">Map ${esc(f.name)}</button></div></div></div>`;
+  // used where
+  if (places.length) h += `<div class="o-row"><div class="o-k">Placed in</div><div>${places.length > 1 ? '<b>' + places.length + ' places</b> share this one definition: ' : ''}${places.filter(([w]) => !isAnon(w)).slice(0, 8).map(([w, c]) => esc(w) + ' &times;' + fmt(c)).join(', ')}${places.length > 8 ? ', &hellip;' : ''}</div></div>`;
+  // a .dwg with the same name
+  if (src) {
+    const c = src.candidates[0];
+    h += `<div class="o-row"><div class="o-k">A .dwg with this name</div><div>${c ? `<span class="path" style="word-break:break-all">${esc(c.path)}</span> <span class="mute">(${esc(SRC_LABEL[src.category] || '')}, modified ${esc(c.modified)})</span>${src.candidates.length > 1 ? `<div class="mute">${src.candidates.length - 1} other file(s) with this name</div>` : ''}<div class="mute" style="font-size:12px">Matched by name only; AutoCAD doesn't record where a block was inserted from.</div>` : '<span class="mute">none found in the folders searched</span>'}</div></div>`;
+  } else if (kind === 'plain' || kind === 'bound' || kind === 'dynamic') {
+    h += `<div class="o-row"><div class="o-k">A .dwg with this name</div><div class="mute">Not looked up yet. <a href="#" onclick="tab(document.querySelector('.tabs button[data-t=sources]')); return false" style="text-decoration:underline">Find Source Files</a> searches the project for it.</div></div>`;
+  }
+  return h + '</div>';
+}
+function mapFile(p) { $('src').value = p; S.name = p.replace(/^.*[\\\/]/, ''); $('root').value = ''; build(); }
+
+
+// ================================================================ Plant 3D status: which plugin is it running?
+async function cadCheck(into) {
+  $('cadShort').textContent = 'checking…'; $('cadDot').className = 'dot';
+  if (into) into.innerHTML = '<div class="cadbox"><span class="spin" style="display:inline-block;width:11px;height:11px;border:1.75px solid currentColor;border-right-color:transparent;border-radius:50%;animation:spin .9s linear infinite"></span> Asking Plant 3D which DWG Tools plugin it is running&hellip;</div>';
+  let r;
+  try { r = await post('/api/cad/status', {}); } catch (e) { r = { verdict: 'The app did not answer.', steps: [] }; }
+  const ok = r.running && r.upToDate === true, bad = r.upToDate === false || !r.running;
+  $('cadDot').className = 'dot ' + (ok ? 'ok' : bad ? 'bad' : 'warn');
+  $('cadShort').textContent = ok ? 'ready' : !r.running ? 'not running' : r.upToDate === false ? 'needs a restart' : 'no answer';
+  const html = `<div class="cadbox ${ok ? 'ok' : 'bad'}"><b>${esc(r.verdict)}</b>${r.action ? '<div style="margin-top:4px">' + esc(r.action) + '</div>' : ''}
+    <div class="mute" style="margin-top:6px">Newest plugin on this PC: built ${esc(r.newestBuild || '?')}${r.pluginBuilt ? ' &middot; running in Plant 3D: built ' + esc(r.pluginBuilt) : ''}</div>
+    ${(r.documents || []).length ? '<div class="mute">Open in Plant 3D: ' + r.documents.map(x => esc(x.replace(/^.*[\\\/]/, ''))).join(', ') + '</div>' : ''}
+    ${stepsList(r.steps)}</div>`;
+  if (into) into.innerHTML = html; else { const m = document.createElement('div'); toastBox(html); }
+  return r;
+}
+function stepsList(steps) {
+  if (!steps || !steps.length) return '';
+  return '<ul class="stepl">' + steps.map(s => `<li><span class="${s[1] ? 'y' : 'n'}">${s[1] ? '✓' : '✗'}</span> ${esc(s[0])}</li>`).join('') + '</ul>';
+}
+function toastBox(html) {
+  let b = $('cadPop');
+  if (!b) { b = document.createElement('div'); b.id = 'cadPop'; b.style.cssText = 'position:fixed;left:270px;bottom:16px;width:420px;z-index:45;box-shadow:var(--shadow);border-radius:14px;background:var(--surface)'; document.body.appendChild(b); }
+  b.innerHTML = html + '<div style="text-align:right;padding:0 10px 8px"><button class="btn sm" onclick="this.closest(\'#cadPop\').remove()">Close</button></div>';
+}
+
+// ================================================================ file browser (drawing, or a folder)
+let browseMode = 'file';
+// Windows' own dialogs; the in-page browser is only the fallback
+async function nativeDialog(kind, dir, name) {
+  try {
+    const r = await fetch('/api/native-dialog?kind=' + kind + '&dir=' + encodeURIComponent(dir || '') + '&name=' + encodeURIComponent(name || ''));
+    const d = await r.json();
+    if (!r.ok) return null;          // failed: caller falls back
+    return d.path || '';             // '' = cancelled
+  } catch (e) { return null; }
+}
+async function wbSaveAs() {
+  const p = await nativeDialog('save', $('wbFolder').value.trim(), $('wbName').value.trim() + '.dwg');
+  if (p === null) return browseFolder();
+  if (!p) return;
+  const i = Math.max(p.lastIndexOf('\\'), p.lastIndexOf('/'));
+  $('wbFolder').value = p.slice(0, i); $('wbName').value = p.slice(i + 1).replace(/\.dwg$/i, ''); wbCheck();
+}
+async function browse() {
+  let last = ''; try { last = localStorage.getItem('lastDir') || ''; } catch (e) {}
+  const p = await nativeDialog('open', $('src').value.trim() || last, '');
+  if (p) { try { localStorage.setItem('lastDir', p.replace(/[^\\\/]*$/, '')); } catch (e) {} return pick(p); }
+  if (p === '') return;
+  browseInPage();
+}
+function browseInPage() {
+  browseMode = 'file'; $('bUse').style.display = 'none';
+  $('modal').classList.add('on');
+  const cur = $('src').value.trim().replace(/^"|"$/g, '');
+  let last = ''; try { last = localStorage.getItem('lastDir') || ''; } catch (e) {}
+  browseGo(cur ? cur.replace(/[^\\\/]*$/, '') : last);
+}
+function browseFolder() { browseMode = 'folder'; $('bUse').style.display = ''; $('modal').classList.add('on'); browseGo($('wbFolder').value.trim()); }
+async function browseGo(path) {
+  const d = await (await fetch('/api/browse?path=' + encodeURIComponent(path))).json();
+  if (d.error) { $('blist').innerHTML = `<div class="err">${esc(d.error)}</div>`; return; }
+  browseState = d; $('bpath').value = d.path;
+  try { if (d.path && browseMode === 'file') localStorage.setItem('lastDir', d.path); } catch (e) {}
+  const sep = d.path && !/[\\\/]$/.test(d.path) ? '\\' : '';
+  $('blist').innerHTML = d.dirs.map(n => `<div onclick='browseGo(${JSON.stringify(d.path ? d.path + sep + n : n)})'><span>&#128193; ${esc(n)}</span></div>`).join('') +
+    d.files.map(f => `<div onclick='pick(${JSON.stringify(d.path + sep + f.name)})' style="${browseMode === 'folder' ? 'opacity:.5;cursor:default' : ''}"><span>&#128196; ${esc(f.name)}</span><span class="mute">${mb(f.size)} · ${esc(f.modified)}</span></div>`).join('') || '<div class="mute">Empty</div>';
+}
+function browseUp() { if (browseState.path) browseGo(browseState.parent || ''); }
+function pick(p) { if (browseMode === 'folder') return; $('src').value = p; closeModal(); srcChanged(); rootFor(); }
+function useFolder() { if (browseState.path) { $('wbFolder').value = browseState.path; wbCheck(); } closeModal(); }
+function closeModal() { $('modal').classList.remove('on'); }
+
+// ================================================================ is the plugin build current?
+async function buildCheck() {
+  let b; try { b = await (await fetch('/api/build-status')).json(); } catch (e) { return; }
+  $('appVer').textContent = 'App started ' + (b.appStarted || '?').slice(5, 16) + ' · plugin ' + (b.plugin || '?').replace(/^DwgTools_(\d{4})(\d{2})(\d{2})(\d{2})(\d{2}).*$/, 'build $2-$3 $4:$5');
+  const el = $('buildBanner');
+  if (b.failed) {
+    el.className = 'bad'; el.style.display = '';
+    el.innerHTML = `<b>The AutoCAD plugin did not build</b> (${esc(b.when)}), so Plant 3D gets the last build that worked, without the newest changes.
+      Lighting up and WBLOCKs may fail or behave like an older version until this is fixed. Send these lines to whoever maintains DWG Tools:` +
+      (b.errors.length ? `<pre>${esc(b.errors.join('\n'))}</pre>` : ' see plugin\\build.log.');
+  } else if (b.unbuiltChanges) {
+    el.className = 'warn'; el.style.display = '';
+    el.innerHTML = '<b>There are plugin changes that are not built yet.</b> Close the run.bat window and run it again; it builds them on start.';
+  } else el.style.display = 'none';
+}
+
+// ================================================================ start
+(async function init() {
+  drawFlow(); loadSide(); buildCheck(); setInterval(buildCheck, 60000);
+  const items = await (await fetch('/api/jobs')).json();
+  const live = items.find(j => j.kind === 'tree' && (j.state === 'running' || j.state === 'queued'));
+  if (live) { jobId = live.id; S.name = live.label.replace('Reference tree: ', ''); startWatch(); return; }
+  const want = new URLSearchParams(location.search).get('tree');
+  if (want && items.some(j => j.id === want && j.state === 'done')) { history.replaceState(null, '', '/'); return load(want); }
+  let last = null; try { last = localStorage.getItem('lastTree'); } catch (e) {}
+  if (last && items.some(j => j.id === last && j.state === 'done')) load(last);
+})();
+</script>
+</body>
+</html>

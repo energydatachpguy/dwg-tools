@@ -1,0 +1,124 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>DWG Tools</title>
+<style>
+  /* ── tokens (ChatGPT-like: white canvas, soft grey sidebar, black primary) ── */
+  :root {
+    --bg: #ffffff; --side: #f9f9f9; --surface: #ffffff; --raised: #f4f4f4; --hover: #ececec;
+    --ink: #0d0d0d; --ink-2: #5d5d5d; --mute: #8f8f8f; --line: rgba(0,0,0,.1); --line-2: rgba(0,0,0,.06);
+    --btn: #0d0d0d; --btn-ink: #ffffff;
+    --green: #10a37f; --green-soft: #e7f6f1; --blue: #2b6cb0; --blue-soft: rgba(43,108,176,.14);
+    --amber: #c58a12; --amber-soft: #fdf5e6; --red: #d1364c; --red-soft: #fdecee;
+    --mono: ui-monospace, "Cascadia Mono", "SF Mono", Consolas, monospace;
+    --shadow: 0 1px 2px rgba(0,0,0,.04), 0 4px 16px rgba(0,0,0,.06);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #212121; --side: #171717; --surface: #2a2a2a; --raised: #303030; --hover: #3a3a3a;
+      --ink: #ececec; --ink-2: #b4b4b4; --mute: #8a8a8a; --line: rgba(255,255,255,.12); --line-2: rgba(255,255,255,.07);
+      --btn: #ececec; --btn-ink: #0d0d0d; --green-soft: rgba(16,163,127,.16); --blue-soft: rgba(90,150,220,.2);
+      --amber-soft: rgba(197,138,18,.16); --red-soft: rgba(209,54,76,.16); --shadow: 0 1px 2px rgba(0,0,0,.3), 0 4px 16px rgba(0,0,0,.3);
+    }
+  }
+  * { box-sizing: border-box; }
+  html, body { height: 100%; }
+  body { margin: 0; background: var(--bg); color: var(--ink); font: 14px/1.5 ui-sans-serif, -apple-system, "Segoe UI", system-ui, Roboto, "Helvetica Neue", Arial, sans-serif; }
+  button { font: inherit; color: inherit; cursor: pointer; }
+  a { color: inherit; text-decoration: none; }
+  input, select { font: inherit; color: inherit; }
+  .muted { color: var(--ink-2); } .mute { color: var(--mute); }
+  .path, code { font-family: var(--mono); font-size: 12.5px; }
+  code { background: var(--raised); padding: 1px 5px; border-radius: 5px; }
+
+  /* ── top nav ── */
+  .nav { display: flex; align-items: center; gap: 4px; padding: 8px 20px; border-bottom: 1px solid var(--line-2); font-size: 13.5px; }
+  .nav .brand { display: flex; align-items: center; gap: 9px; font-weight: 600; font-size: 15px; margin-right: 14px; }
+  .nav .logo { width: 26px; height: 26px; border-radius: 7px; background: var(--btn); color: var(--btn-ink); display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 700; }
+  .nav .nl { padding: 6px 12px; border-radius: 999px; border: 0; background: transparent; font-weight: 500; }
+  .nav .nl:hover { background: var(--hover); } .nav .nl.on { background: var(--raised); }
+  .nav .nr { margin-left: auto; display: flex; align-items: center; gap: 8px; color: var(--mute); font-size: 12.5px; }
+  .nav .nr b { color: var(--ink-2); font-weight: 600; }
+  /* buttons */
+  .btn { display: inline-flex; align-items: center; gap: 6px; border: 1px solid var(--line); background: var(--surface); padding: 7px 14px; border-radius: 999px; font-size: 13.5px; font-weight: 500; white-space: nowrap; }
+  .btn:hover { background: var(--hover); }
+  .btn.primary { background: var(--btn); color: var(--btn-ink); border-color: var(--btn); }
+  .btn.primary:hover { opacity: .88; }
+  .btn.primary:disabled { opacity: .3; cursor: not-allowed; }
+  .btn.sm { padding: 4px 11px; font-size: 12.5px; }
+  .btn.ghost { border-color: transparent; background: transparent; }
+  .btn.ghost:hover { background: var(--hover); }
+  .chip { display: inline-flex; align-items: center; gap: 6px; border: 1px solid var(--line); border-radius: 999px; padding: 5px 12px; font-size: 12.5px; background: transparent; color: var(--ink-2); }
+  .chip.on { background: var(--raised); color: var(--ink); border-color: transparent; font-weight: 500; }
+  input[type=text] { width: 100%; border: 1px solid var(--line); background: var(--surface); border-radius: 12px; padding: 9px 12px; outline: none; }
+  input[type=text]:focus { border-color: color-mix(in srgb, var(--ink) 35%, transparent); }
+  select { border: 1px solid var(--line); background: var(--surface); border-radius: 999px; padding: 4px 10px; font-size: 12.5px; }
+
+  .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--mute); flex: none; }
+  .wrap { max-width: 1200px; margin: 0 auto; padding: 22px 24px 60px; }
+  h1 { font-size: 22px; margin: 0 0 4px; } h2 { font-size: 16px; margin: 28px 0 8px; }
+  .bar { display: flex; gap: 10px; align-items: center; margin: 14px 0 4px; } .bar input { max-width: 360px; }
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  a[href], button:not(:disabled), th[data-k], [data-open], [data-cad] { cursor: pointer; }
+  th { text-align: left; font-weight: 600; color: var(--ink-2); padding: 8px 10px; border-bottom: 1px solid var(--line); cursor: pointer; white-space: nowrap; user-select: none; }
+  td { padding: 8px 10px; border-bottom: 1px solid var(--line-2); vertical-align: top; }
+  tr:hover td { background: var(--side); }
+  .mute { color: var(--mute); } .path { font-family: var(--mono); font-size: 12px; word-break: break-all; }
+  .empty { color: var(--mute); padding: 14px 10px; }
+  a { color: var(--blue); }
+  *, *::before, *::after { text-decoration: none !important; }
+  .nav a, a.btn { color: inherit; }
+</style>
+</head>
+<body>
+<div class="nav">
+  <div class="brand"><div class="logo">DW</div>DWG Tools</div>
+  <a class="nl" href="/">New Drawing</a>
+  <a class="nl on" href="/history">Past Work</a>
+  <a class="nl" href="/logs" target="_blank">Log</a>
+</div>
+<div class="wrap">
+  <h1>Past Work</h1>
+  <div class="mute">Drawings you mapped and the WBLOCKs you saved. Nothing here changes any file.</div>
+  <div class="bar"><input type="text" id="q" placeholder="Filter by name, block or folder&hellip;" oninput="draw()"></div>
+
+  <h2>WBLOCKs Saved <span class="mute" id="nWb"></span></h2>
+  <table><thead><tr><th data-t="wb" data-k="name">File</th><th data-t="wb" data-k="block">Block</th><th data-t="wb" data-k="entities">Objects</th><th data-t="wb" data-k="drawing">Made From</th><th data-t="wb" data-k="created">When</th><th></th></tr></thead><tbody id="tWb"></tbody></table>
+
+  <h2>Drawings Mapped <span class="mute" id="nTr"></span></h2>
+  <table><thead><tr><th data-t="tr" data-k="name">Drawing</th><th data-t="tr" data-k="created">Mapped</th><th></th></tr></thead><tbody id="tTr"></tbody></table>
+</div>
+<script>
+const $ = id => document.getElementById(id);
+const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const base = p => String(p || '').replace(/^.*[\\\/]/, '');
+let WB = [], TR = [], sort = { wb: ['created', -1], tr: ['created', -1] };
+async function post(u, b) { try { return await (await fetch(u, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(b) })).json(); } catch (e) { return {}; } }
+function sorted(rows, t) { const [k, d] = sort[t]; return rows.slice().sort((a, b) => { const x = a[k], y = b[k]; return (typeof x === 'number' && typeof y === 'number' ? x - y : String(x || '').localeCompare(String(y || ''), undefined, { numeric: true })) * d; }); }
+function draw() {
+  const q = $('q').value.trim().toLowerCase(), hit = r => !q || JSON.stringify(r).toLowerCase().includes(q);
+  const wb = sorted(WB.filter(hit), 'wb'), tr = sorted(TR.filter(hit), 'tr');
+  $('nWb').textContent = '(' + wb.length + ')'; $('nTr').textContent = '(' + tr.length + ')';
+  $('tWb').innerHTML = wb.map(x => `<tr><td><b>${esc(x.name)}</b><div class="path mute">${esc(x.file)}</div></td><td>${esc(x.block)}</td><td>${x.entities != null ? Number(x.entities).toLocaleString() : ''}</td><td class="path">${esc(base(x.drawing))}</td><td style="white-space:nowrap">${esc((x.created || '').slice(0, 16))}</td>
+    <td style="white-space:nowrap"><button class="btn sm" data-open="${esc(x.file)}">Open Folder</button> <button class="btn sm" data-cad="${esc(x.file)}">Open in CAD</button></td></tr>`).join('') || '<tr><td colspan="6" class="empty">None yet.</td></tr>';
+  $('tTr').innerHTML = tr.map(t => `<tr><td><b>${esc(t.name)}</b></td><td style="white-space:nowrap">${esc(t.created)}</td><td><a class="btn sm" href="/?tree=${encodeURIComponent(t.id)}">Open</a></td></tr>`).join('') || '<tr><td colspan="3" class="empty">None yet.</td></tr>';
+}
+document.addEventListener('click', async e => {
+  const th = e.target.closest('th[data-k]');
+  if (th) { const t = th.dataset.t, k = th.dataset.k; sort[t] = [k, sort[t][0] === k ? -sort[t][1] : 1]; return draw(); }
+  const o = e.target.closest('[data-open]'); if (o) return post('/api/open-folder', { path: o.dataset.open });
+  const c = e.target.closest('[data-cad]'); if (c) { const r = await post('/api/open-in-cad', { path: c.dataset.cad }); if (r && r.ok === false) alert(r.msg || "Could not open it"); }
+});
+(async () => {
+  try { WB = (await (await fetch('/api/wblocks')).json()).map(x => ({ ...x, name: base(x.file) })); } catch (e) {}
+  try {
+    const seen = new Set();
+    for (const t of await (await fetch('/api/trees')).json()) { const n = t.label.replace('Reference tree: ', ''); if (seen.has(n)) continue; seen.add(n); TR.push({ id: t.id, name: n, created: t.created }); }
+  } catch (e) {}
+  draw();
+})();
+</script>
+</body>
+</html>

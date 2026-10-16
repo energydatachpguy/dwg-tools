@@ -1,0 +1,29 @@
+# Per-machine: each computer builds and configures its own
+venv/
+settings.json
+plugin/bin/
+plugin/obj/
+plugin/build.log
+
+# Per-user work and logs
+logs/
+trees/
+jobs_history.json
+testdata/
+
+# Python
+__pycache__/
+*.pyc
+
+# Never commit drawings (work on copies, keep them out of git)
+*.dwg
+*.dwl
+*.dwl2
+*.bak
+*.sv$
+
+# Old page no longer used by the app
+webapp/templates/index.html
+
+# Office lock files
+~$*
