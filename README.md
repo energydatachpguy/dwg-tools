@@ -6,7 +6,7 @@ in master coordinates, so it can be inserted at 0,0 into a new master.
 Work on a **deliberate copy** of the equipment model, never the live master.
 
 ## Start
-**New computer?** Follow [SETUP.md](SETUP.md) (Python, Git, clone, `setup.bat`). Supported: AutoCAD / Plant 3D 2020-2024.
+**New computer?** Follow [SETUP.md](SETUP.md) (Python, Git, clone, `setup.bat`). Supported: AutoCAD / Plant 3D 2020 and newer (2025+ also needs the .NET 8 SDK).
 
 Double-click **`run.bat`**. The page opens at http://localhost:5014 (this computer only; **`run_shared.bat`** lets other
 PCs on the network open it). Keep that window open while you work. `run.bat` rebuilds the plugin whenever its source is newer.

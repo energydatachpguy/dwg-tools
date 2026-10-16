@@ -57,7 +57,7 @@ namespace DwgFlat
             d["sha256"] = hash;
             d["at"] = DateTime.Now.ToString("s");
             d["by"] = Environment.UserName;
-            string line = new System.Web.Script.Serialization.JavaScriptSerializer().Serialize(d) + "\n";
+            string line = Json.Serialize(d) + "\n";
             lock (_lock) File.AppendAllText(LedgerPath, line, Encoding.UTF8);
         }
 
@@ -69,11 +69,10 @@ namespace DwgFlat
             string recorded = null;
             try
             {
-                System.Web.Script.Serialization.JavaScriptSerializer js = new System.Web.Script.Serialization.JavaScriptSerializer();
                 foreach (string line in File.ReadAllLines(LedgerPath))
                 {
                     if (line.Trim().Length == 0) continue;
-                    Dictionary<string, object> d = js.Deserialize<Dictionary<string, object>>(line);
+                    Dictionary<string, object> d = Json.ParseObject(line);
                     object p; object h;
                     if (d.TryGetValue("path", out p) && Util.NormPath(Convert.ToString(p)) == want && d.TryGetValue("sha256", out h))
                         recorded = Convert.ToString(h);   // last record for this path wins

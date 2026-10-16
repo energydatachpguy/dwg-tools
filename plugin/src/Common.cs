@@ -9,7 +9,6 @@ using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
 using System.Text;
-using System.Web.Script.Serialization;
 
 namespace DwgFlat
 {
@@ -187,17 +186,12 @@ namespace DwgFlat
 
         public static string ToJson(object o)
         {
-            JavaScriptSerializer js = new JavaScriptSerializer();
-            js.MaxJsonLength = int.MaxValue;
-            js.RecursionLimit = 256;
-            return Pretty(js.Serialize(o));
+            return Pretty(Json.Serialize(o));
         }
 
         public static Dictionary<string, object> ParseJsonObject(string text)
         {
-            JavaScriptSerializer js = new JavaScriptSerializer();
-            js.MaxJsonLength = int.MaxValue;
-            return js.Deserialize<Dictionary<string, object>>(text);
+            return Json.ParseObject(text);
         }
 
         /// <summary>Indent compact JSON so reports are readable in Notepad.</summary>

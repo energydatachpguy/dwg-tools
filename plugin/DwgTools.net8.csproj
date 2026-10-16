@@ -1,0 +1,33 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!-- AutoCAD / Plant 3D 2025 and newer run on .NET 8. build.bat uses this
+       project for those versions (dotnet build); 2020-2024 are built with the
+       stock Windows csc.exe instead. Same source files either way.
+       build.bat passes -p:Stamp=<date-time> -p:AcadDir=<AutoCAD folder>. -->
+  <PropertyGroup>
+    <TargetFramework>net8.0-windows</TargetFramework>
+    <UseWPF>true</UseWPF>
+    <UseWindowsForms>true</UseWindowsForms>
+    <PlatformTarget>x64</PlatformTarget>
+    <AssemblyName>DwgTools_$(Stamp)</AssemblyName>
+    <RootNamespace>DwgFlat</RootNamespace>
+    <OutDir>$(MSBuildProjectDirectory)\bin\</OutDir>
+    <EnableDefaultItems>false</EnableDefaultItems>
+    <EnableDynamicLoading>true</EnableDynamicLoading>
+    <ImplicitUsings>disable</ImplicitUsings>
+    <Nullable>disable</Nullable>
+    <LangVersion>latest</LangVersion>
+    <Optimize>true</Optimize>
+    <DebugType>none</DebugType>
+    <GenerateDocumentationFile>false</GenerateDocumentationFile>
+    <SatelliteResourceLanguages>en</SatelliteResourceLanguages>
+    <NoWarn>$(NoWarn);618;414;649;CS0618;CS0414;CS0649;CS0168;CS0219;CA1416;SYSLIB0021;SYSLIB0014;NU1701</NoWarn>
+  </PropertyGroup>
+  <ItemGroup>
+    <Compile Include="src\*.cs" />
+    <Compile Include="obj\BuildInfo.cs" />
+  </ItemGroup>
+  <ItemGroup>
+    <Reference Include="acdbmgd"><HintPath>$(AcadDir)\acdbmgd.dll</HintPath><Private>false</Private></Reference>
+    <Reference Include="accoremgd"><HintPath>$(AcadDir)\accoremgd.dll</HintPath><Private>false</Private></Reference>
+  </ItemGroup>
+</Project>

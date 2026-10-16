@@ -26,6 +26,23 @@ def item(status, what, fix=""):
         print("        -> " + fix)
 
 
+def dotnet_sdk():
+    """Newest installed .NET SDK version 8 or later, else ''."""
+    import subprocess
+    cands = [os.path.join(os.environ.get("ProgramFiles", r"C:\Program Files"), "dotnet", "dotnet.exe"),
+             os.path.join(os.environ.get("LOCALAPPDATA", ""), "Microsoft", "dotnet", "dotnet.exe"), "dotnet"]
+    for exe in cands:
+        try:
+            out = subprocess.run([exe, "--list-sdks"], capture_output=True, text=True, timeout=30).stdout
+        except Exception:
+            continue
+        vers = [ln.split()[0] for ln in out.splitlines() if ln.strip()]
+        good = [v for v in vers if v.split(".")[0].isdigit() and int(v.split(".")[0]) >= 8]
+        if good:
+            return good[-1]
+    return ""
+
+
 def main():
     print()
     print("  DWG Tools setup check  (%s)" % ROOT)
@@ -64,8 +81,12 @@ def main():
                 s = json.load(fh)
             item("OK", "settings.json")
         except Exception as e:
-            item("FAIL", "settings.json can't be read (%s)" % e,
-                 "Fix it, or delete it and run setup.bat to get a fresh one")
+            fix = "Fix it, or delete it and run setup.bat to get a fresh one"
+            if "escape" in str(e).lower():
+                fix = ("Backslashes in a path must be doubled, e.g. "
+                       "\"C:\\\\Program Files\\\\Autodesk\\\\AutoCAD 2025\\\\acad.exe\"  "
+                       "(or leave \"acad_exe\" empty and it is found by itself)")
+            item("FAIL", "settings.json can't be read (%s)" % e, fix)
     else:
         item("FAIL", "settings.json is missing", "Run setup.bat")
 
@@ -80,9 +101,14 @@ def main():
         year = cad._acad_year(exe)
         name = "AutoCAD %s" % (year or "(unknown version)")
         if year >= 2025:
-            item("FAIL", "%s found at %s" % (name, exe),
-                 "AutoCAD 2025+ runs on .NET 8, which the plugin doesn't support yet. "
-                 "If 2020-2024 is also installed, put its acad.exe in settings.json as \"acad_exe\"")
+            item("OK", "%s at %s (.NET 8)" % (name, exe))
+            sdk = dotnet_sdk()
+            if sdk:
+                item("OK", ".NET SDK %s (builds the plugin for AutoCAD 2025+)" % sdk)
+            else:
+                item("FAIL", "AutoCAD 2025+ needs the free .NET 8 SDK to build the plugin",
+                     "Run  winget install Microsoft.DotNet.SDK.8  (or download '.NET 8 SDK x64' from "
+                     "https://dotnet.microsoft.com/download/dotnet/8.0), then run setup.bat again")
         else:
             item("OK", "%s at %s" % (name, exe))
         plant = os.path.isdir(os.path.join(os.path.dirname(exe), "PLNT3D"))

@@ -41,15 +41,7 @@ if "%ACADKIND%"=="NONE" (
   if "%1"=="" pause
   exit /b 1
 )
-if "%ACADKIND%"=="NET8" (
-  echo Found AutoCAD %ACADYEAR% in "%ACAD%". >> build.log
-  echo AutoCAD 2025 and newer run on .NET 8, which this plugin does not support yet. >> build.log
-  echo Supported: AutoCAD / Plant 3D 2020 to 2024. If one of those is also installed, put its acad.exe in settings.json as "acad_exe". >> build.log
-  echo BUILD FAILED >> build.log
-  type build.log
-  if "%1"=="" pause
-  exit /b 1
-)
+if "%ACADKIND%"=="NET8" goto net8
 echo Building against AutoCAD %ACADYEAR% in "%ACAD%" >> build.log
 rem WindowsBase.dll (for the Esc key that clears the highlight): the framework's WPF folder, else the reference assemblies
 set WB=%FW%\WPF\WindowsBase.dll
@@ -81,6 +73,54 @@ if errorlevel 1 (
   echo {"dll": "DwgTools_%STAMP%.dll", "command": "DWGT%STAMP%", "stamp": "%STAMP%"}
 )
 echo Built %~dp0bin\DwgTools_%STAMP%.dll  (command DWGT%STAMP%) >> build.log
+type build.log
+if "%1"=="" pause
+endlocal
+exit /b 0
+
+:net8
+rem AutoCAD 2025 and newer: .NET 8, built with the .NET SDK (dotnet build)
+echo Building against AutoCAD %ACADYEAR% in "%ACAD%" (.NET 8) >> build.log
+set "DOTNET="
+for %%p in ("%ProgramFiles%\dotnet\dotnet.exe" "%LOCALAPPDATA%\Microsoft\dotnet\dotnet.exe") do if not defined DOTNET if exist "%%~p" set "DOTNET=%%~p"
+if not defined DOTNET for /f "delims=" %%p in ('where dotnet 2^>nul') do if not defined DOTNET set "DOTNET=%%p"
+set "HAVESDK="
+if not exist obj mkdir obj
+if defined DOTNET "%DOTNET%" --list-sdks > obj\sdks.txt 2>nul
+if defined DOTNET for /f "usebackq tokens=1 delims=." %%v in ("obj\sdks.txt") do if %%v GEQ 8 set "HAVESDK=1"
+if not defined HAVESDK (
+  echo AutoCAD %ACADYEAR% runs on .NET 8, so this computer needs the free .NET 8 SDK to build the plugin. >> build.log
+  echo Install it with:  winget install Microsoft.DotNet.SDK.8 >> build.log
+  echo or download ".NET 8 SDK x64" from https://dotnet.microsoft.com/download/dotnet/8.0 >> build.log
+  echo then run setup.bat again. >> build.log
+  echo BUILD FAILED >> build.log
+  type build.log
+  if "%1"=="" pause
+  exit /b 1
+)
+if not exist bin mkdir bin
+if not exist obj mkdir obj
+> obj\BuildInfo.cs (
+  echo namespace DwgFlat { public static class BuildInfo { public const string Stamp = "%STAMP%"; public const string Command = "DWGT%STAMP%"; } }
+)
+"%DOTNET%" build "%~dp0DwgTools.net8.csproj" -c Release -nologo -v:minimal -p:Stamp=%STAMP% -p:AcadDir="%ACAD%" >> build.log 2>&1
+if errorlevel 1 (
+  echo BUILD FAILED >> build.log
+  type build.log
+  if "%1"=="" pause
+  exit /b 1
+)
+if not exist "bin\DwgTools_%STAMP%.dll" (
+  echo dotnet build finished but bin\DwgTools_%STAMP%.dll is missing >> build.log
+  echo BUILD FAILED >> build.log
+  type build.log
+  if "%1"=="" pause
+  exit /b 1
+)
+> bin\current.json (
+  echo {"dll": "DwgTools_%STAMP%.dll", "command": "DWGT%STAMP%", "stamp": "%STAMP%", "net": "8"}
+)
+echo Built %~dp0bin\DwgTools_%STAMP%.dll  (command DWGT%STAMP%, .NET 8) >> build.log
 type build.log
 if "%1"=="" pause
 endlocal
