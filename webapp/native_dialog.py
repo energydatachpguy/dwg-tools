@@ -13,7 +13,7 @@ $owner = New-Object System.Windows.Forms.Form
 $owner.TopMost = $true; $owner.ShowInTaskbar = $false; $owner.WindowState = 'Minimized'
 $owner.Show(); $owner.Hide()
 if ($env:DLG_KIND -eq 'save') { $d = New-Object System.Windows.Forms.SaveFileDialog; $d.OverwritePrompt = $false; $d.AddExtension = $true; $d.DefaultExt = 'dwg' }
-else { $d = New-Object System.Windows.Forms.OpenFileDialog; $d.CheckFileExists = $true }
+else { $d = New-Object System.Windows.Forms.OpenFileDialog; $d.CheckFileExists = $true; if ($env:DLG_KIND -eq 'multi') { $d.Multiselect = $true } }
 $d.Title = $env:DLG_TITLE
 $d.Filter = 'AutoCAD drawings (*.dwg)|*.dwg'
 if ($env:DLG_DIR -and (Test-Path -LiteralPath $env:DLG_DIR)) { $d.InitialDirectory = $env:DLG_DIR }
@@ -21,12 +21,12 @@ if ($env:DLG_NAME) { $d.FileName = $env:DLG_NAME }
 $r = $d.ShowDialog($owner)
 $owner.Dispose()
 [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
-if ($r -eq 'OK') { [Console]::Out.Write($d.FileName) }
+if ($r -eq 'OK') { if ($env:DLG_KIND -eq 'multi') { [Console]::Out.Write(($d.FileNames -join [char]10)) } else { [Console]::Out.Write($d.FileName) } }
 """
 
 
 def ask(kind, title, initial_dir="", name=""):
-    """kind: 'open' or 'save'. -> chosen path, or '' if cancelled. Raises on failure."""
+    """kind: 'open', 'multi' (several files, one per line) or 'save'. -> chosen path(s), or '' if cancelled. Raises on failure."""
     if os.name != "nt":
         raise RuntimeError("native dialogs are only available on Windows")
     env = dict(os.environ, DLG_KIND=kind, DLG_TITLE=title, DLG_DIR=initial_dir or "", DLG_NAME=name or "")

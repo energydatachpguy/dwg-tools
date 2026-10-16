@@ -293,6 +293,14 @@
   /* the WBLOCK workflow dialog */
   .wfm { position: fixed; inset: 0; z-index: 50; background: rgba(16,20,24,.42); display: flex; align-items: center; justify-content: center; }
   .wfm[hidden] { display: none; }
+  .wf.imp { width: min(1180px, 80vw); height: auto; max-height: 86vh; }
+  .imp-body { padding: 18px 24px 22px; overflow: auto; }
+  .imp-t { width: 100%; border-collapse: collapse; font-size: 13.5px; margin: 6px 0 10px; }
+  .imp-t th { text-align: left; font-weight: 600; font-size: 12px; color: var(--muted); padding: 6px 8px; border-bottom: 1px solid var(--line-2); }
+  .imp-t td { padding: 5px 8px; border-bottom: 1px solid var(--line-2); vertical-align: middle; }
+  .imp-t input[type=text], .imp-t input[type=number] { width: 100%; box-sizing: border-box; }
+  .imp-t td.f { max-width: 380px; overflow-wrap: anywhere; }
+  .imp-empty { padding: 26px; text-align: center; border: 1px dashed var(--line); border-radius: 12px; color: var(--muted); margin: 8px 0 12px; }
   .wf { width: min(1560px, 80vw); height: min(940px, 86vh); background: var(--surface); border-radius: 18px; box-shadow: 0 30px 90px rgba(0,0,0,.32); display: flex; flex-direction: column; overflow: hidden; }
   @media (max-width: 1100px) { .wf { width: 96vw; height: 94vh; } }
   .wf-hd { padding: 16px 24px 14px; border-bottom: 1px solid var(--line-2); display: flex; gap: 12px; align-items: flex-start; }
@@ -385,6 +393,7 @@
     <div class="nav">
       <div class="brand"><div class="logo">DW</div>DWG Tools</div>
       <button class="nl on" onclick="newDrawing()">New Drawing</button>
+      <button class="nl" onclick="impOpen()" title="Insert WBLOCK files you already have into the drawing open in Plant 3D">Import Blocks</button>
       <a class="nl" href="/history">Past Work</a>
       <a class="nl" href="/logs" target="_blank">Log</a>
       <div class="nr"><span class="dot" id="cadDot"></span><b>Plant 3D</b><span id="cadShort">not checked</span>
@@ -524,6 +533,7 @@
   </section>
 </main>
 
+<div class="wfm" id="impm" hidden><div class="wf imp" id="imp" role="dialog" aria-modal="true" aria-label="Import blocks"></div></div>
 <div class="wfm" id="wfm" hidden><div class="wf" id="wb" role="dialog" aria-modal="true" aria-label="WBLOCK workflow"></div></div>
 <div class="modal" id="modal">
   <div class="box">
@@ -2005,9 +2015,9 @@ function insHtml() {
   if (WB.inserted) return `<div class="wb-sec" id="wb4"><h4><span class="n">4</span>Insert Back into the Drawing</h4>${WB.inserted}</div>`;
   const same = insSame();
   return `<div class="wb-sec" id="wb4"><h4><span class="n">4</span>Insert Back into ${esc(dn)}</h4>
-    <div class="field"><label>Layer</label><div class="in"><input type="text" id="insLayer" value="${esc(stem)}"></div></div>
+    <div class="field"><label>Layer</label><div class="in"><input type="text" id="insLayer" value="${esc(stem.toUpperCase())}"></div></div>
     <div class="field"><label>New Layer Color</label><div class="in" style="align-items:center;gap:8px"><input type="number" id="insColor" min="1" max="255" value="${insColorDefault()}" style="width:90px" oninput="insColorSave()"><span id="insSw">${sw(insColorDefault())}</span><span class="mute" style="font-size:12px">color number 1&ndash;255; what is on layer 0 in the block shows in this color</span></div></div>
-    <p class="mute" style="font-size:12.5px;margin:2px 0 8px">Goes in as block <b>${esc(stem)}</b> at 0,0, scale 1, rotation 0, on that layer. If the layer is already in the drawing you'll be asked first (it keeps its own color) and it becomes the current layer.</p>
+    <p class="mute" style="font-size:12.5px;margin:2px 0 8px">Goes in as block <b>${esc(stem)}</b> at 0,0, scale 1, rotation 0, on that layer (named after the block, in capitals, unless you change it). If the layer is already in the drawing you'll be asked first (it keeps its own color) and it becomes the current layer.</p>
     ${same ? `<div class="hint" style="margin:0 0 8px">Same name as the block it was made from, so it <b>replaces</b> it: the ${top || ''} ticked original${top === 1 ? ' is' : 's are'} erased, the old definition is purged, then the new block goes in.${nested ? ` <span class="mute">${nested} nested cop${nested > 1 ? 'ies stay' : 'y stays'} inside ${nested > 1 ? 'their' : 'its'} parent.</span>` : ''} If other copies of it are elsewhere in the drawing, you'll be asked first.</div>`
     : `<div style="display:flex;flex-direction:column;gap:6px;margin-bottom:8px;font-size:13.5px">
       <label style="display:flex;gap:8px;align-items:flex-start"><input type="radio" name="insMode" value="replace" onchange="insReady()"${top ? '' : ' disabled'}>
@@ -2290,6 +2300,153 @@ function toastBox(html) {
   if (!b) { b = document.createElement('div'); b.id = 'cadPop'; b.style.cssText = 'position:fixed;left:270px;bottom:16px;width:420px;z-index:45;box-shadow:var(--shadow);border-radius:14px;background:var(--surface)'; document.body.appendChild(b); }
   b.innerHTML = html + '<div style="text-align:right;padding:0 10px 8px"><button class="btn sm" onclick="this.closest(\'#cadPop\').remove()">Close</button></div>';
 }
+
+// ================================================================ browser tab shows the drawing
+(function () {
+  const upd = () => { const t = ($('tbTitle') || {}).textContent || ''; document.title = (t && t !== 'New Drawing') ? t + ' – DWG Tools' : 'DWG Tools'; };
+  new MutationObserver(upd).observe($('tbTitle'), { childList: true, characterData: true, subtree: true }); upd();
+})();
+
+// ================================================================ Import Blocks: WBLOCK files you already have -> the drawing open in CAD
+let IMP = null;
+const impStem = f => f.replace(/^.*[\\\/]/, '').replace(/\.dwg$/i, '');
+function impOpen() {
+  if (WB && (S.phase === 'finding' || S.phase === 'making' || S.phase === 'picking' || S.phase === 'inserting')) { toast('Finish the current WBLOCK step first.'); return; }
+  let last = ''; try { last = localStorage.getItem('impDwg') || ''; } catch (e) {}
+  IMP = { drawing: (T && T.source) || $('src').value.trim() || last, items: [], busy: false, log: [], done: null };
+  $('impm').hidden = false; document.body.style.overflow = 'hidden';
+  impDraw();
+}
+function impClose() {
+  if (IMP && IMP.busy) { toast('Wait until Plant 3D is done.'); return; }
+  IMP = null; $('impm').hidden = true; $('imp').innerHTML = '';
+  if ($('wfm').hidden) document.body.style.overflow = '';
+}
+function impDraw() {
+  if (!IMP) return;
+  const dn = IMP.drawing ? IMP.drawing.replace(/^.*[\\\/]/, '') : '';
+  const n = IMP.items.length;
+  $('imp').innerHTML = `
+    <div class="wf-hd"><div style="flex:1;min-width:0"><h2>Import Blocks</h2>
+      <div class="mute" style="font-size:13px">Insert WBLOCK files you already have into the drawing open in Plant 3D. Nothing is saved.</div></div>
+      <button class="btn ghost sm" onclick="impClose()" title="Close" style="font-size:18px;line-height:1">&times;</button></div>
+    <div class="imp-body">
+      <div class="field"><label>Into Drawing</label><div class="in"><input type="text" id="impDwg" class="path" value="${esc(IMP.drawing)}" placeholder="The drawing open in Plant 3D" oninput="IMP.drawing=this.value.trim();impReady()"${IMP.busy ? ' disabled' : ''}><button class="btn sm" onclick="impPickDwg()"${IMP.busy ? ' disabled' : ''}>Browse&hellip;</button></div></div>
+      ${dn ? `<p class="mute" style="font-size:12.5px;margin:-2px 0 10px">Opens in Plant 3D if it isn't already. Work on a copy of the master.</p>` : ''}
+      <div style="display:flex;align-items:center;gap:10px;margin-top:14px">
+        <h4 style="margin:0;flex:1">WBLOCK Files${n ? ` <span class="mute" style="font-weight:400">(${n})</span>` : ''}</h4>
+        <button class="btn sm" onclick="impAdd()"${IMP.busy ? ' disabled' : ''}>Add Files&hellip;</button></div>
+      ${n ? `<table class="imp-t"><tr><th>File</th><th style="width:22%">Block Name</th><th style="width:22%">Layer</th><th style="width:9%">X</th><th style="width:9%">Y</th><th style="width:34px"></th></tr>
+        ${IMP.items.map((it, i) => `<tr><td class="f"><b>${esc(impStem(it.file))}</b><div class="mute" style="font-size:11.5px">${esc(it.file.replace(/[\\\/][^\\\/]*$/, ''))}</div></td>
+          <td>${esc(impStem(it.file))}</td>
+          <td><input type="text" value="${esc(it.layer)}" oninput="IMP.items[${i}].layer=this.value"${IMP.busy ? ' disabled' : ''}></td>
+          <td><input type="number" step="any" value="${it.x}" oninput="IMP.items[${i}].x=parseFloat(this.value)||0"${IMP.busy ? ' disabled' : ''}></td>
+          <td><input type="number" step="any" value="${it.y}" oninput="IMP.items[${i}].y=parseFloat(this.value)||0"${IMP.busy ? ' disabled' : ''}></td>
+          <td><button class="btn ghost sm" title="Take it off the list" onclick="impDel(${i})"${IMP.busy ? ' disabled' : ''}>&times;</button></td></tr>`).join('')}</table>`
+      : `<div class="imp-empty">No files yet. <a onclick="impAdd()">Add WBLOCK files</a> (you can pick several at once).</div>`}
+      <div class="field"><label>New Layer Color</label><div class="in" style="align-items:center;gap:8px"><input type="number" id="impColor" min="1" max="255" value="${insColorDefault()}" style="width:90px" oninput="impColorSave()"${IMP.busy ? ' disabled' : ''}><span id="impSw">${sw(insColorDefault())}</span><span class="mute" style="font-size:12px">for layers this creates; what is on layer 0 in a block shows in this color</span></div></div>
+      <p class="mute" style="font-size:12.5px;margin:4px 0 10px">Each file goes in as a block named after the file, at the X, Y given (0,0 = the master's 0,0), scale 1, rotation 0, on its layer
+        (named after the block in capitals unless you change it). If a block of that name or the layer is already in the drawing, you'll be asked first.</p>
+      <button class="btn primary" id="impGo" onclick="impGo()" style="width:100%;justify-content:center" disabled>Import</button>
+      <div id="impOut">${IMP.done || ''}</div>
+      <details class="log" style="margin-top:12px"><summary>What AutoCAD Did, Step by Step</summary><pre id="impLog">${esc(IMP.log.join('\n') || 'Nothing yet.')}</pre></details>
+    </div>`;
+  impReady();
+}
+function impReady() {
+  const b = $('impGo'); if (!b || !IMP) return;
+  const n = IMP.items.length;
+  b.disabled = IMP.busy || !n || !IMP.drawing;
+  b.textContent = !IMP.drawing ? 'Choose the Drawing First' : !n ? 'Add Files to Import' : n === 1 ? 'Import 1 Block' : 'Import ' + n + ' Blocks';
+}
+function impColorSave() { const v = parseInt($('impColor').value, 10); if (v >= 1 && v <= 255) { try { localStorage.setItem('insColor', v); } catch (e) {} $('impSw').innerHTML = sw(v); } }
+function impDel(i) { IMP.items.splice(i, 1); IMP.done = null; impDraw(); }
+async function impPickDwg() {
+  const p = await nativeDialog('open', IMP.drawing || '', '');
+  if (p === null) { toast('Could not open the Windows file dialog. Paste the path instead.'); return; }
+  if (!p) return;
+  IMP.drawing = p; impDraw();
+}
+async function impAdd() {
+  let dir = ''; try { dir = localStorage.getItem('impFolder') || localStorage.getItem('wbFolder') || ''; } catch (e) {}
+  if (!dir && IMP.drawing) dir = IMP.drawing.replace(/[\\\/][^\\\/]*$/, '');
+  let paths;
+  try {
+    const r = await fetch('/api/native-dialog?kind=multi&dir=' + encodeURIComponent(dir));
+    const d = await r.json();
+    if (!r.ok) { toast(d.error || 'Could not open the Windows file dialog.'); return; }
+    paths = d.paths || [];
+  } catch (e) { toast('Could not open the Windows file dialog.'); return; }
+  if (!paths.length) return;
+  try { localStorage.setItem('impFolder', paths[0].replace(/[\\\/][^\\\/]*$/, '')); } catch (e) {}
+  const have = new Set(IMP.items.map(it => it.file.toLowerCase()));
+  for (const f of paths) {
+    if (have.has(f.toLowerCase())) continue;
+    if (IMP.drawing && f.toLowerCase() === IMP.drawing.toLowerCase()) { toast('Skipped the drawing itself.'); continue; }
+    IMP.items.push({ file: f, layer: impStem(f).toUpperCase(), x: 0, y: 0 });
+  }
+  IMP.done = null; impDraw();
+}
+function impLog(title, res) {
+  IMP.log.push('── ' + title + ' ──', ...(res._steps || []).map(s => (s[1] ? '✓ ' : '✗ ') + s[0]).concat(res.log || []));
+  const e = $('impLog'); if (e) e.textContent = IMP.log.join('\n');
+}
+function impAsk(html, buttons) {
+  return new Promise(res => {
+    const box = $('impOut');
+    box.innerHTML = `<div class="hint" style="margin-top:8px;background:var(--amber-soft)">${html}<div style="display:flex;gap:6px;margin-top:8px">` +
+      buttons.map((b, i) => `<button class="btn sm${i === 0 ? ' primary' : ''}" data-v="${esc(b[0])}">${esc(b[1])}</button>`).join('') + '</div></div>';
+    box.querySelectorAll('button[data-v]').forEach(b => b.onclick = () => { box.innerHTML = ''; res(b.dataset.v); });
+  });
+}
+async function impGo() {
+  if (!IMP || IMP.busy || !IMP.items.length || !IMP.drawing) return;
+  const col = parseInt($('impColor').value, 10);
+  const items = IMP.items.map(it => ({ file: it.file, layer: (it.layer || '').trim() || impStem(it.file).toUpperCase(), x: it.x || 0, y: it.y || 0, color: col >= 1 && col <= 255 ? col : 72 }));
+  const drawing = IMP.drawing;
+  try { localStorage.setItem('impDwg', drawing); } catch (e) {}
+  const stop = msg => { IMP.busy = false; impDraw(); $('impOut').innerHTML = msg; };
+  IMP.busy = true; IMP.done = null; impDraw();
+  $('impOut').innerHTML = '<p class="muted" style="margin:8px 0 0">Checking the drawing in Plant 3D&hellip;</p>';
+  const chk = await task('insertcheck', { drawing, items, replace: [] });
+  if (!IMP) return;
+  impLog('Check before importing', chk);
+  if (chk.status !== 'OK') return stop(`<div class="err">${esc(chk.message || 'Plant 3D did not answer.')}</div>`);
+  const ci = chk.items || [];
+  let redefine = false, current = false;
+  const ex = ci.filter(x => x.blockExists);
+  if (ex.length) {
+    const v = await impAsk(`${ex.length === 1 ? 'A block' : ex.length + ' blocks'} with the same name ${ex.length === 1 ? 'is' : 'are'} already in the drawing:
+      ${ex.map(x => `<b>${esc(x.block)}</b> (${fmt(x.copies)} cop${x.copies === 1 ? 'y' : 'ies'})`).join(', ')}. Importing updates ${ex.length === 1 ? 'its definition' : 'their definitions'}, so every copy changes.`,
+      [['go', ex.length === 1 && ex[0].copies === 1 ? 'Update It' : 'Update All'], ['stop', 'Cancel']]);
+    if (!IMP) return;
+    if (v !== 'go') return stop('<p class="mute" style="margin:8px 0 0">Cancelled. Nothing was changed. Take those files off the list to import the rest.</p>');
+    redefine = true;
+  }
+  const lx = [...new Set(ci.filter(x => x.layerExists).map(x => x.layer))];
+  if (lx.length) {
+    const v = await impAsk(`Layer${lx.length > 1 ? 's' : ''} ${lx.map(l => '<b>' + esc(l) + '</b>').join(', ')} already exist${lx.length > 1 ? '' : 's'} in the drawing. Put the block${ci.length > 1 ? 's' : ''} on ${lx.length > 1 ? 'them' : 'it'} and make ${lx.length > 1 ? 'the last one' : 'it'} the current layer?`,
+      [['go', 'Use Layer' + (lx.length > 1 ? 's' : '') + ' & Make Current'], ['stop', 'Cancel']]);
+    if (!IMP) return;
+    if (v !== 'go') return stop('<p class="mute" style="margin:8px 0 0">Cancelled. Nothing was changed. Change the layer name to use a new layer.</p>');
+    current = true;
+  }
+  $('impOut').innerHTML = '<div class="bar"><i></i></div><p class="muted" style="margin:0">Importing in Plant 3D&hellip;</p>';
+  const r = await task('insert', { drawing, items, replace: [], purge: false, redefine, current });
+  if (!IMP) return;
+  impLog('Import', r);
+  if (r.status !== 'OK') return stop(`<div class="err">${esc(r.message || 'Plant 3D did not answer.')}</div>`);
+  const ins = r.inserted || [];
+  IMP.done = `<div class="ok-box" style="margin-top:10px"><div class="big-ok"><div class="ck">&#10003;</div><div><b>Imported ${ins.length} block${ins.length === 1 ? '' : 's'}</b>
+      ${ins.map(x => `<div style="font-size:13px">${esc(x.block)} on layer <b>${esc(x.layer)}</b> at ${fmt(x.x)}, ${fmt(x.y)}${x.redefined ? ' <span class="mute">(existing definition updated)</span>' : ''}</div>`).join('')}
+      ${r.currentLayer ? `<div class="muted" style="font-size:12.5px">Current layer is now ${esc(r.currentLayer)}.</div>` : ''}
+      ${(r.warnings || []).map(w => `<div class="mute" style="font-size:12.5px">${esc(w)}</div>`).join('')}
+      <div class="muted" style="font-size:12.5px;margin-top:4px"><b>Not saved</b>: check it in Plant 3D, then save the drawing yourself. UNDO reverses it.</div>
+      ${T && T.source && T.source.toLowerCase() === drawing.toLowerCase() ? '<button class="btn sm" style="margin-top:8px" onclick="impClose();refreshLive()">Refresh Tree from CAD</button>' : ''}</div></div></div>`;
+  IMP.items = []; IMP.busy = false; impDraw();
+  toast('Imported. Nothing was saved.');
+}
+document.addEventListener('keydown', e => { if (e.key === 'Escape' && IMP && !$('impm').hidden) impClose(); });
 
 // ================================================================ file browser (drawing, or a folder)
 let browseMode = 'file';

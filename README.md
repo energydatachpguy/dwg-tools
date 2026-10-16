@@ -48,13 +48,19 @@ how many times, and where. **Sort by** puts the most nested blocks first.
    no geographic location is carried over. After saving, up to 200 real points per file are looked up in the
    saved WBLOCK to prove each one is at the same coordinates.
 4. **Insert it back** into the drawing open in CAD: as a block named after the file, at 0,0, on a layer named after the
-   file (editable). Choose **Replace the original** (erase the copies it was made from) or **Keep both** each time.
+   file in capitals (editable). Choose **Replace the original** (erase the copies it was made from) or **Keep both** each time.
    A block of the same name already in the drawing is redefined, so every copy updates.
 
 What it guarantees:
 - **This tool never saves a drawing.** Inserting changes the drawing open in CAD in memory only; check it and save it
   yourself. UNDO in CAD reverses an insert. Work on a deliberate copy of the master.
 - **An existing file is never replaced.** If a WBLOCK name is taken, the page says so before you can save.
+
+## Import Blocks (WBLOCKs you already have)
+**Import Blocks** in the top bar inserts existing WBLOCK files into the drawing open in Plant 3D, without making anything first.
+Add one or more files (Windows' own dialog; pick several at once), set each one's layer (defaults to the block name in capitals)
+and X, Y (default 0,0), then **Import**. A block of the same name already in the drawing, or an existing layer, is asked about first.
+Nothing is saved.
 
 **Remove highlight** (top of the WBLOCK panel) clears the highlight in AutoCAD (REGEN does the same).
 

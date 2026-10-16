@@ -617,14 +617,14 @@ def api_env():
 @app.route("/api/native-dialog")
 def api_native_dialog():
     """Show Windows' own Open / Save As dialog. Only returns the chosen path."""
-    kind = "save" if request.args.get("kind") == "save" else "open"
+    kind = request.args.get("kind") if request.args.get("kind") in ("save", "multi") else "open"
     folder = request.args.get("dir", "").strip().strip('"')
     if folder and os.path.isfile(folder):
         folder = os.path.dirname(folder)
     while folder and not os.path.isdir(folder):
         up = os.path.dirname(folder.rstrip("\\/"))
         folder = "" if up == folder else up
-    title = "Save the WBLOCK as" if kind == "save" else "Open the copy of the equipment drawing"
+    title = {"save": "Save the WBLOCK as", "multi": "Choose the WBLOCK files to import"}.get(kind, "Open the copy of the equipment drawing")
     try:
         path = native_dialog.ask(kind, title, folder, request.args.get("name", ""))
     except Exception as exc:
@@ -632,7 +632,8 @@ def api_native_dialog():
         return jsonify({"error": str(exc)}), 500
     if path and kind == "save" and not path.lower().endswith(".dwg"):
         path += ".dwg"
-    return jsonify({"path": path, "cancelled": not path})
+    paths = [x.strip() for x in path.splitlines() if x.strip()] if kind == "multi" else ([path] if path else [])
+    return jsonify({"path": paths[0] if paths else "", "paths": paths, "cancelled": not paths})
 
 
 @app.route("/api/layer-standard")
